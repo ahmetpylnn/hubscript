@@ -1,178 +1,151 @@
 --============================================================
--- PLAYER CONTROL PANEL
--- ADVANCED LOCAL EDITION
+-- OYUNCU KONTROL PANELI
+-- GELISMIS / SAGLAM LOCAL SCRIPT
 --
--- LocalScript ONLY
+-- KONUM:
 -- StarterPlayer > StarterPlayerScripts
 --
--- FEATURES
--- • Nearest Player AimLock
--- • Aim FOV
--- • Aim smoothing
--- • Aim prediction
--- • Configurable aim part
--- • Configurable aim distance
--- • Team check
--- • Line-of-sight check
--- • ESP
--- • ESP names
--- • ESP distance
--- • Speed
--- • Jump
--- • Fly
--- • Noclip
--- • Infinite Jump
--- • God Mode (client-side)
--- • Teleport To Mouse
--- • Draggable UI
--- • Settings tab
--- • Live numeric configuration
--- • Respawn state restoration
--- • Automatic cleanup
+-- OZELLIKLER:
+-- - En yakin oyuncu AimLock
+-- - Ekran merkezi AimLock
+-- - Aim FOV
+-- - Aim Smooth
+-- - Aim Prediction
+-- - Aim Height
+-- - Aim Distance
+-- - Aim Part secimi
+-- - Takim kontrolu
+-- - Goruntu hattı kontrolu
+-- - ESP
+-- - ESP isim
+-- - ESP can
+-- - ESP mesafe
+-- - ESP renk
+-- - Duvar arkasi ESP
+-- - Speed
+-- - Jump
+-- - Fly
+-- - Noclip
+-- - Sonsuz Ziplama
+-- - God Mode
+-- - Teleport To Mouse
+-- - Yeniden dogma sonrasi otomatik toparlanma
+-- - Ayarlanabilir hiz
+-- - Ayarlanabilir fly hizi
+-- - Ayarlanabilir jump
+-- - Suruklenebilir panel
+-- - Suruklenebilir kare launcher
+-- - CTRL ile ac / kapa
+-- - RAlt ile AimLock ac / kapa
+-- - Turkce arayuz
 --============================================================
 
 print("==================================================")
-print(" PLAYER CONTROL - ADVANCED LOCAL EDITION")
+print(" OYUNCU KONTROL PANELI BASLIYOR")
 print("==================================================")
 
 --============================================================
--- SERVICES
+-- HIZMETLER
 --============================================================
 
-local Players =
-	game:GetService("Players")
+local Oyuncular = game:GetService("Players")
+local Calistirici = game:GetService("RunService")
+local Giris = game:GetService("UserInputService")
+local Tween = game:GetService("TweenService")
+local Dunya = game:GetService("Workspace")
+local ArayuzHizmeti = game:GetService("GuiService")
 
-local RunService =
-	game:GetService("RunService")
+local YerelOyuncu = Oyuncular.LocalPlayer
 
-local UserInputService =
-	game:GetService("UserInputService")
-
-local TweenService =
-	game:GetService("TweenService")
-
-local Workspace =
-	game:GetService("Workspace")
-
-local GuiService =
-	game:GetService("GuiService")
-
-local LocalPlayer =
-	Players.LocalPlayer
-
-if not LocalPlayer then
-	warn("PLAYER CONTROL: LocalPlayer bulunamadı.")
+if not YerelOyuncu then
+	warn("OYUNCU KONTROL: Yerel oyuncu bulunamadi.")
 	return
 end
 
-local PlayerGui =
-	LocalPlayer:WaitForChild("PlayerGui")
+local OyuncuArayuzu = YerelOyuncu:WaitForChild("PlayerGui")
 
 --============================================================
--- CLEAN OLD BIND
+-- ESKI SISTEMLERI TEMIZLE
 --============================================================
 
 pcall(function()
-	RunService:UnbindFromRenderStep(
-		"PLAYER_CONTROL_AIM"
+	Calistirici:UnbindFromRenderStep(
+		"OyuncuKontrol_Aim"
 	)
 end)
 
 pcall(function()
-	RunService:UnbindFromRenderStep(
-		"PLAYER_CONTROL_FLY"
+	Calistirici:UnbindFromRenderStep(
+		"OyuncuKontrol_Fly"
 	)
 end)
 
---============================================================
--- CLEAN OLD GUI
---============================================================
-
-local oldGui =
-	PlayerGui:FindFirstChild(
-		"PlayerControl_ADVANCED"
+local EskiArayuz =
+	OyuncuArayuzu:FindFirstChild(
+		"OyuncuKontrol"
 	)
 
-if oldGui then
-	oldGui:Destroy()
+if EskiArayuz then
+	EskiArayuz:Destroy()
 end
 
 --============================================================
--- CONFIG
+-- AYARLAR
 --============================================================
 
-local CONFIG = {
+local AYAR = {
 
 	--========================================================
-	-- MOVEMENT
+	-- HAREKET
 	--========================================================
 
-	SPEED = 50,
-	JUMP = 100,
-	FLY_SPEED = 60,
+	HIZ = 50,
+	ZIPLAMA = 100,
+	UCUS_HIZI = 60,
 
 	--========================================================
-	-- AIMLOCK
+	-- AIM
 	--========================================================
 
-	AIM_DISTANCE = 1000,
+	AIM_MESAFE = 1000,
 
-	-- 0.01 - 1
-	-- 1 = anında
-	AIM_SMOOTH = 0.35,
+	AIM_YUMUSAKLIK = 0.35,
 
-	-- Hedef değiştirme süresi
-	AIM_SWITCH = 0.20,
+	AIM_DEGISIM = 0.20,
 
-	-- Ekstra dikey offset
-	-- 0 = doğrudan hedef parçası
-	AIM_HEIGHT = 0,
+	AIM_YUKSEKLIK = 0,
 
-	-- Hareketli hedef prediction
-	-- 0 = kapalı
-	-- 0.10 = hafif
-	-- 0.20 = daha güçlü
-	AIM_PREDICTION = 0,
+	AIM_TAHMIN = 0,
 
-	-- FOV
-	-- 0 = sınırsız
-	-- >0 = ekran merkezinden pixel yarıçapı
 	AIM_FOV = 0,
 
-	-- Team kontrolü
-	TEAM_CHECK = true,
+	AIM_PARCA = "Head",
 
-	-- Duvar arkasına hedef alma
-	LOS_CHECK = true,
+	AIM_MODU = "En Yakin",
 
-	-- Hedef parçası
-	-- "Head"
-	-- "HumanoidRootPart"
-	-- "UpperTorso"
-	AIM_PART = "Head",
+	TAKIM_KONTROLU = true,
 
-	-- Hedef seçme modu
-	-- "Nearest"
-	-- "Screen"
-	AIM_MODE = "Nearest",
+	GORUS_KONTROLU = true,
 
 	--========================================================
 	-- ESP
 	--========================================================
 
-	ESP_DISTANCE = 0,
+	ESP_MESAFE = 0,
 
-	ESP_SHOW_NAMES = true,
+	ESP_ISIM = true,
 
-	ESP_SHOW_HEALTH = true,
+	ESP_CAN = true,
 
-	ESP_FILL = 0.65,
+	ESP_MESAFE_YAZ = true,
 
-	ESP_OUTLINE = 0,
+	ESP_DOLGU = 0.65,
 
-	ESP_THROUGH_WALLS = true,
+	ESP_DUVAR_ARKASI = true,
 
-	ESP_COLOR =
+	ESP_TAKIM_KONTROLU = false,
+
+	ESP_RENK =
 		Color3.fromRGB(
 			235,
 			75,
@@ -183,341 +156,273 @@ local CONFIG = {
 	-- TELEPORT
 	--========================================================
 
-	TELEPORT_DISTANCE = 5000,
+	TELEPORT_MESAFE = 5000,
 
-	TELEPORT_HEIGHT = 3.5,
-
-	--========================================================
-	-- PANEL
-	--========================================================
-
-	PANEL_WIDTH = 420,
-
-	PANEL_HEIGHT = 610,
+	TELEPORT_YUKSEKLIK = 3.5,
 
 	--========================================================
-	-- FOV VISUAL
+	-- FOV
 	--========================================================
 
-	FOV_ENABLED = false,
+	FOV_GOSTER = false,
 
-	FOV_THICKNESS = 2,
+	FOV_KALINLIK = 2,
 
-	FOV_TRANSPARENCY = 0.2,
+	FOV_SEFFAFLIK = 0.2,
 
-	FOV_COLOR =
+	FOV_RENK =
 		Color3.fromRGB(
 			80,
-			190,
+			180,
 			255
 		),
 }
 
 --============================================================
--- STATE
+-- DURUM
 --============================================================
 
-local State = {
+local Durum = {
 
-	AimLock = false,
+	Aim = false,
 	ESP = false,
 
-	Speed = false,
-	Jump = false,
+	Hiz = false,
+	Ziplama = false,
 
 	Noclip = false,
 	Fly = false,
-	InfiniteJump = false,
+	SonsuzZiplama = false,
 
 	God = false,
 	Teleport = false,
 }
 
 --============================================================
--- CHARACTER
+-- KARAKTER
 --============================================================
 
-local Character = nil
+local Karakter = nil
 local Humanoid = nil
-local RootPart = nil
+local Govde = nil
 
-local OriginalWalkSpeed = 16
+local OrijinalHiz = 16
 
-local OriginalUseJumpPower = true
-local OriginalJumpPower = 50
-local OriginalJumpHeight = 7.2
-local OriginalAutoRotate = true
+local OrijinalJumpPowerKullan = true
+local OrijinalJumpPower = 50
+local OrijinalJumpHeight = 7.2
+local OrijinalAutoRotate = true
 
 --============================================================
 -- AIM
 --============================================================
 
-local AimTarget = nil
-local AimPart = nil
-local AimTimer = 0
-local AimScanTimer = 0
-local AimValidationTimer = 0
+local AimHedefi = nil
+local AimParcasi = nil
+
+local AimSayaci = 0
+local AimTaramaSayaci = 0
+local AimKontrolSayaci = 0
 
 --============================================================
 -- ESP
 --============================================================
 
-local ESPObjects = {}
+local ESPNesneleri = {}
 
 --============================================================
 -- NOCLIP
 --============================================================
 
-local CollisionMemory = {}
+local Carpismalar = {}
 
 --============================================================
 -- FLY
 --============================================================
 
-local FlyAttachment = nil
-local FlyVelocity = nil
-local FlyOrientation = nil
+local FlyEklenti = nil
+local FlyHiz = nil
+local FlyYon = nil
 
 --============================================================
 -- GOD
 --============================================================
 
-local GodConnection = nil
+local GodBaglantisi = nil
 
 --============================================================
--- UI REFERENCES
+-- UI REFERANSLARI
 --============================================================
 
-local ScreenGui
-local Main
-local Content
-local Status
+local AnaArayuz = nil
+local AnaPanel = nil
+local Baslatici = nil
+local DurumYazisi = nil
+local FovCemberi = nil
 
-local Pages = {}
-local Tabs = {}
+local Sayfalar = {}
+local Sekmeler = {}
 
-local AimFOVCircle = nil
-
---============================================================
--- COLORS
---============================================================
-
-local COLOR = {
-
-	BG =
-		Color3.fromRGB(
-			8,
-			9,
-			13
-		),
-
-	PANEL =
-		Color3.fromRGB(
-			17,
-			19,
-			26
-		),
-
-	HEADER =
-		Color3.fromRGB(
-			22,
-			25,
-			34
-		),
-
-	CARD =
-		Color3.fromRGB(
-			27,
-			30,
-			40
-		),
-
-	CARD_HOVER =
-		Color3.fromRGB(
-			34,
-			38,
-			50
-		),
-
-	BORDER =
-		Color3.fromRGB(
-			62,
-			68,
-			84
-		),
-
-	TEXT =
-		Color3.fromRGB(
-			245,
-			247,
-			250
-		),
-
-	SUB =
-		Color3.fromRGB(
-			145,
-			151,
-			165
-		),
-
-	GREEN =
-		Color3.fromRGB(
-			61,
-			203,
-			113
-		),
-
-	GREEN_DARK =
-		Color3.fromRGB(
-			29,
-			65,
-			45
-		),
-
-	RED =
-		Color3.fromRGB(
-			235,
-			75,
-			83
-		),
-
-	BLUE =
-		Color3.fromRGB(
-			80,
-			170,
-			255
-		),
-}
+local AimAyarlaUI = nil
+local ESPOlusturUI = nil
+local HizAyarlaUI = nil
+local ZiplamaAyarlaUI = nil
+local FlyAyarlaUI = nil
+local GodAyarlaUI = nil
+local TeleportAyarlaUI = nil
 
 --============================================================
--- UTILITY
+-- STATUS SISTEMI
 --============================================================
 
-local function ClampNumber(
-	value,
-	minimum,
-	maximum,
-	fallback
+local DurumMesajiBitis = 0
+
+local function DurumGuncelle(
+	yazi,
+	sure
 )
 
-	local number =
-		tonumber(value)
-
-	if not number then
-		return fallback
+	if not DurumYazisi then
+		return
 	end
 
-	return math.clamp(
-		number,
-		minimum,
-		maximum
-	)
-end
+	DurumYazisi.Text =
+		yazi
 
-local function SetStatus(text)
-
-	if Status then
-		Status.Text = text
+	if sure then
+		DurumMesajiBitis =
+			os.clock() + sure
+	else
+		DurumMesajiBitis =
+			0
 	end
 end
 
-local function SafeDestroy(object)
+--============================================================
+-- GUVENLI SIL
+--============================================================
 
-	if object then
+local function GuvenliSil(
+	nesne
+)
+
+	if nesne then
 
 		pcall(function()
-			object:Destroy()
+			nesne:Destroy()
 		end)
 
 	end
 end
 
 --============================================================
--- CHARACTER HELPERS
+-- KARAKTER AL
 --============================================================
 
-local function GetCharacter(player)
+local function KarakterAl(
+	oyuncu
+)
 
-	if not player then
+	if not oyuncu then
 		return nil
 	end
 
-	local character =
-		player.Character
+	local karakter =
+		oyuncu.Character
 
-	if not character then
+	if not karakter then
 		return nil
 	end
 
-	if not character.Parent then
+	if not karakter.Parent then
 		return nil
 	end
 
-	return character
+	return karakter
 end
 
-local function GetHumanoid(player)
+--============================================================
+-- HUMANOID AL
+--============================================================
 
-	local character =
-		GetCharacter(player)
+local function HumanoidAl(
+	oyuncu
+)
 
-	if not character then
+	local karakter =
+		KarakterAl(
+			oyuncu
+		)
+
+	if not karakter then
 		return nil
 	end
 
-	return character:FindFirstChildOfClass(
+	return karakter:FindFirstChildOfClass(
 		"Humanoid"
 	)
 end
 
-local function GetRootPart(player)
+--============================================================
+-- ROOT AL
+--============================================================
 
-	local character =
-		GetCharacter(player)
+local function GovdeAl(
+	oyuncu
+)
 
-	if not character then
+	local karakter =
+		KarakterAl(
+			oyuncu
+		)
+
+	if not karakter then
 		return nil
 	end
 
-	local root =
-		character:FindFirstChild(
+	local govde =
+		karakter:FindFirstChild(
 			"HumanoidRootPart"
 		)
 
-	if root
-		and root:IsA("BasePart") then
+	if govde
+		and govde:IsA("BasePart") then
 
-		return root
+		return govde
 	end
 
 	return nil
 end
 
 --============================================================
--- AIM PART
+-- AIM PARCASI AL
 --============================================================
 
-local function GetAimPart(player)
+local function AimParcasiAl(
+	oyuncu
+)
 
-	local character =
-		GetCharacter(player)
+	local karakter =
+		KarakterAl(
+			oyuncu
+		)
 
-	if not character then
+	if not karakter then
 		return nil
 	end
 
-	local preferred =
-		character:FindFirstChild(
-			CONFIG.AIM_PART
+	local tercih =
+		karakter:FindFirstChild(
+			AYAR.AIM_PARCA
 		)
 
-	if preferred
-		and preferred:IsA("BasePart") then
+	if tercih
+		and tercih:IsA("BasePart") then
 
-		return preferred
+		return tercih
 	end
 
-	local fallbackNames = {
+	local yedekler = {
 
 		"Head",
 		"HumanoidRootPart",
@@ -526,262 +431,285 @@ local function GetAimPart(player)
 		"LowerTorso",
 	}
 
-	for _, name in ipairs(
-		fallbackNames
+	for _, ad in ipairs(
+		yedekler
 	) do
 
-		local part =
-			character:FindFirstChild(
-				name
+		local parca =
+			karakter:FindFirstChild(
+				ad
 			)
 
-		if part
-			and part:IsA("BasePart") then
+		if parca
+			and parca:IsA("BasePart") then
 
-			return part
+			return parca
 		end
 	end
 
-	return character:FindFirstChildWhichIsA(
+	return karakter:FindFirstChildWhichIsA(
 		"BasePart",
 		true
 	)
 end
 
 --============================================================
--- ALIVE
+-- YASIYOR MU
 --============================================================
 
-local function IsAlive(player)
+local function YasiyorMu(
+	oyuncu
+)
 
-	if not player
-		or player == LocalPlayer then
+	if not oyuncu then
+		return false
+	end
+
+	if oyuncu ==
+		YerelOyuncu then
 
 		return false
 	end
 
 	local humanoid =
-		GetHumanoid(player)
+		HumanoidAl(
+			oyuncu
+		)
 
-	local part =
-		GetAimPart(player)
+	local parca =
+		AimParcasiAl(
+			oyuncu
+		)
 
 	if not humanoid
-		or not part then
+		or not parca then
 
 		return false
 	end
 
-	if humanoid.Health <= 0 then
-		return false
-	end
-
-	return true
+	return humanoid.Health > 0
 end
 
 --============================================================
--- TEAM
+-- TAKIM
 --============================================================
 
-local function IsSameTeam(player)
+local function AyniTakimMi(
+	oyuncu
+)
 
-	if not CONFIG.TEAM_CHECK then
+	if not AYAR.TAKIM_KONTROLU then
 		return false
 	end
 
-	if not LocalPlayer.Team then
+	if not YerelOyuncu.Team then
 		return false
 	end
 
-	if not player.Team then
+	if not oyuncu.Team then
 		return false
 	end
 
-	return LocalPlayer.Team ==
-		player.Team
+	return YerelOyuncu.Team ==
+		oyuncu.Team
 end
 
 --============================================================
--- DISTANCE
+-- MESAFE
 --============================================================
 
-local function GetDistance(position)
+local function MesafeAl(
+	pozisyon
+)
 
-	if not RootPart then
+	if not Govde then
 		return math.huge
 	end
 
 	return (
-		RootPart.Position -
-		position
+		Govde.Position -
+		pozisyon
 	).Magnitude
 end
 
 --============================================================
--- SCREEN POSITION
+-- EKRAN MESAFESI
 --============================================================
 
-local function GetScreenDistance(part)
+local function EkranMesafesiAl(
+	parca
+)
 
-	local camera =
-		Workspace.CurrentCamera
+	local kamera =
+		Dunya.CurrentCamera
 
-	if not camera
-		or not part then
+	if not kamera
+		or not parca then
 
 		return math.huge,
 			false
 	end
 
-	local point,
-		onScreen =
-		camera:WorldToViewportPoint(
-			part.Position
+	local nokta,
+		ekranda =
+		kamera:WorldToViewportPoint(
+			parca.Position
 		)
 
-	local viewport =
-		camera.ViewportSize
+	if nokta.Z <= 0 then
+		return math.huge,
+			false
+	end
 
-	local center =
-		Vector2.new(
-			viewport.X / 2,
-			viewport.Y / 2
-		)
+	local merkez =
+		kamera.ViewportSize / 2
 
-	local distance =
+	local fark =
 		(
 			Vector2.new(
-				point.X,
-				point.Y
+				nokta.X,
+				nokta.Y
 			) -
-			center
+			merkez
 		).Magnitude
 
-	return distance,
-		onScreen
+	return fark,
+		ekranda
 end
 
 --============================================================
--- LINE OF SIGHT
+-- GORUS HATTI
 --============================================================
 
-local function HasLineOfSight(
-	player,
-	part
+local function GorunurMu(
+	oyuncu,
+	parca
 )
 
-	if not CONFIG.LOS_CHECK then
+	if not AYAR.GORUS_KONTROLU then
 		return true
 	end
 
-	local camera =
-		Workspace.CurrentCamera
+	local kamera =
+		Dunya.CurrentCamera
 
-	if not camera
-		or not part then
+	if not kamera
+		or not parca then
 
 		return false
 	end
 
-	local character =
-		GetCharacter(player)
-
-	if not character then
-		return false
-	end
-
-	local direction =
-		part.Position -
-		camera.CFrame.Position
-
-	local params =
-		RaycastParams.new()
-
-	params.FilterType =
-		Enum.RaycastFilterType.Exclude
-
-	params.FilterDescendantsInstances = {
-
-		Character,
-		character,
-	}
-
-	params.IgnoreWater = true
-
-	local result =
-		Workspace:Raycast(
-			camera.CFrame.Position,
-			direction,
-			params
+	local karakter =
+		KarakterAl(
+			oyuncu
 		)
 
-	if not result then
+	if not karakter then
+		return false
+	end
+
+	local yon =
+		parca.Position -
+		kamera.CFrame.Position
+
+	if yon.Magnitude <= 0.001 then
 		return true
 	end
 
-	return result.Instance:IsDescendantOf(
-		character
+	local parametre =
+		RaycastParams.new()
+
+	parametre.FilterType =
+		Enum.RaycastFilterType.Exclude
+
+	parametre.FilterDescendantsInstances = {
+		Karakter,
+		karakter,
+	}
+
+	parametre.IgnoreWater =
+		true
+
+	local sonuc =
+		Dunya:Raycast(
+			kamera.CFrame.Position,
+			yon,
+			parametre
+		)
+
+	if not sonuc then
+		return true
+	end
+
+	return sonuc.Instance:IsDescendantOf(
+		karakter
 	)
 end
 
 --============================================================
--- TARGET VALIDATION
+-- AIM HEDEF GECERLI
 --============================================================
 
-local function IsValidTarget(
-	player,
-	part
+local function AimHedefGecerli(
+	oyuncu,
+	parca
 )
 
-	if not player
-		or not part then
+	if not oyuncu
+		or not parca then
 
 		return false
 	end
 
-	if not IsAlive(player) then
+	if not YasiyorMu(oyuncu) then
 		return false
 	end
 
-	if IsSameTeam(player) then
+	if AyniTakimMi(oyuncu) then
 		return false
 	end
 
-	if not part.Parent then
+	if not parca.Parent then
 		return false
 	end
 
-	local distance =
-		GetDistance(
-			part.Position
+	if not Govde then
+		return false
+	end
+
+	local mesafe =
+		MesafeAl(
+			parca.Position
 		)
 
-	if distance >
-		CONFIG.AIM_DISTANCE then
+	if mesafe >
+		AYAR.AIM_MESAFE then
 
 		return false
 	end
 
-	if CONFIG.AIM_FOV > 0 then
+	if AYAR.AIM_FOV > 0 then
 
-		local screenDistance,
-			onScreen =
-			GetScreenDistance(part)
+		local ekranMesafesi,
+			ekranda =
+			EkranMesafesiAl(
+				parca
+			)
 
-		if not onScreen then
+		if not ekranda then
 			return false
 		end
 
-		if screenDistance >
-			CONFIG.AIM_FOV then
+		if ekranMesafesi >
+			AYAR.AIM_FOV then
 
 			return false
 		end
 	end
 
-	if not HasLineOfSight(
-		player,
-		part
+	if not GorunurMu(
+		oyuncu,
+		parca
 	) then
 
 		return false
@@ -791,704 +719,487 @@ local function IsValidTarget(
 end
 
 --============================================================
--- TARGET SEARCH
+-- EN IYI HEDEF
 --============================================================
 
-local function FindNearestPlayer()
+local function EnIyiHedefiBul()
 
-	if not RootPart then
+	if not Govde then
 		return nil, nil
 	end
 
-	local bestPlayer = nil
-	local bestPart = nil
+	local enIyiOyuncu = nil
+	local enIyiParca = nil
 
-	local bestDistance = math.huge
-	local bestScreenDistance = math.huge
+	local enIyiMesafe =
+		math.huge
 
-	for _, player in ipairs(
-		Players:GetPlayers()
+	local enIyiEkran =
+		math.huge
+
+	local kamera =
+		Dunya.CurrentCamera
+
+	for _, oyuncu in ipairs(
+		Oyuncular:GetPlayers()
 	) do
 
-		if player ~= LocalPlayer then
+		if oyuncu ~=
+			YerelOyuncu then
 
-			local part =
-				GetAimPart(player)
+			local parca =
+				AimParcasiAl(
+					oyuncu
+				)
 
-			if part
-				and IsValidTarget(
-					player,
-					part
+			if parca
+				and AimHedefGecerli(
+					oyuncu,
+					parca
 				) then
 
-				local worldDistance =
-					GetDistance(
-						part.Position
+				local mesafe =
+					MesafeAl(
+						parca.Position
 					)
 
-				local screenDistance =
-					GetScreenDistance(
-						part
-					)
+				local ekranMesafesi =
+					math.huge
 
-				if CONFIG.AIM_MODE ==
-					"Screen" then
+				if kamera then
 
-					if screenDistance <
-						bestScreenDistance then
+					ekranMesafesi =
+						EkranMesafesiAl(
+							parca
+						)
+				end
 
-						bestScreenDistance =
-							screenDistance
+				if AYAR.AIM_MODU ==
+					"Ekran Merkezi" then
 
-						bestDistance =
-							worldDistance
+					if ekranMesafesi <
+						enIyiEkran then
 
-						bestPlayer =
-							player
+						enIyiEkran =
+							ekranMesafesi
 
-						bestPart =
-							part
+						enIyiMesafe =
+							mesafe
+
+						enIyiOyuncu =
+							oyuncu
+
+						enIyiParca =
+							parca
 					end
 
 				else
 
-					if worldDistance <
-						bestDistance then
+					if mesafe <
+						enIyiMesafe then
 
-						bestDistance =
-							worldDistance
+						enIyiMesafe =
+							mesafe
 
-						bestScreenDistance =
-							screenDistance
+						enIyiEkran =
+							ekranMesafesi
 
-						bestPlayer =
-							player
+						enIyiOyuncu =
+							oyuncu
 
-						bestPart =
-							part
+						enIyiParca =
+							parca
 					end
 				end
 			end
 		end
 	end
 
-	return bestPlayer,
-		bestPart
+	return enIyiOyuncu,
+		enIyiParca
 end
 
 --============================================================
--- AIM CLEAR
+-- AIM TEMIZLE
 --============================================================
 
-local function ClearAim()
+local function AimTemizle()
 
-	AimTarget = nil
-	AimPart = nil
+	AimHedefi = nil
+	AimParcasi = nil
 
-	AimTimer = 0
-	AimValidationTimer = 0
-
+	AimSayaci = 0
+	AimTaramaSayaci = 0
+	AimKontrolSayaci = 0
 end
 
 --============================================================
--- PREDICTED POSITION
+-- TAHMINLI POZISYON
 --============================================================
 
-local function GetPredictedPosition(
-	part
+local function TahminliPozisyon(
+	parca
 )
 
-	if not part then
+	if not parca then
 		return nil
 	end
 
-	local position =
-		part.Position
+	local pozisyon =
+		parca.Position
 
-	local prediction =
-		CONFIG.AIM_PREDICTION
-
-	if prediction <= 0 then
-		return position
+	if AYAR.AIM_TAHMIN <= 0 then
+		return pozisyon
 	end
 
-	return position +
+	return pozisyon +
 		(
-			part.AssemblyLinearVelocity *
-			prediction
+			parca.AssemblyLinearVelocity *
+			AYAR.AIM_TAHMIN
 		)
 end
 
 --============================================================
--- AIM FOV GUI
+-- ESP SIL
 --============================================================
 
-local function CreateFOVCircle()
+local function ESPSil(
+	oyuncu
+)
 
-	if AimFOVCircle then
-		AimFOVCircle:Destroy()
-	end
+	local veri =
+		ESPNesneleri[oyuncu]
 
-	local circle =
-		Instance.new("Frame")
-
-	circle.Name =
-		"AimFOV"
-
-	circle.AnchorPoint =
-		Vector2.new(
-			0.5,
-			0.5
-		)
-
-	circle.Position =
-		UDim2.fromScale(
-			0.5,
-			0.5
-		)
-
-	circle.Size =
-		UDim2.fromOffset(
-			1,
-			1
-		)
-
-	circle.BackgroundTransparency =
-		1
-
-	circle.Visible =
-		false
-
-	circle.ZIndex =
-		50
-
-	circle.Parent =
-		ScreenGui
-
-	local corner =
-		Instance.new("UICorner")
-
-	corner.CornerRadius =
-		UDim.new(
-			1,
-			0
-		)
-
-	corner.Parent =
-		circle
-
-	local stroke =
-		Instance.new("UIStroke")
-
-	stroke.Name =
-		"FOVStroke"
-
-	stroke.Color =
-		CONFIG.FOV_COLOR
-
-	stroke.Thickness =
-		CONFIG.FOV_THICKNESS
-
-	stroke.Transparency =
-		CONFIG.FOV_TRANSPARENCY
-
-	stroke.Parent =
-		circle
-
-	AimFOVCircle =
-		circle
-
-end
-
-local function UpdateFOVCircle()
-
-	if not AimFOVCircle then
+	if not veri then
 		return
 	end
 
-	AimFOVCircle.Visible =
-		(
-			State.AimLock
-			and
-			CONFIG.FOV_ENABLED
-			and
-			CONFIG.AIM_FOV > 0
-		)
-
-	if CONFIG.AIM_FOV > 0 then
-
-		AimFOVCircle.Size =
-			UDim2.fromOffset(
-				CONFIG.AIM_FOV * 2,
-				CONFIG.AIM_FOV * 2
-			)
-	end
-end
-
---============================================================
--- ESP REMOVE
---============================================================
-
-local function RemoveESP(player)
-
-	local object =
-		ESPObjects[player]
-
-	if not object then
-		return
-	end
-
-	SafeDestroy(
-		object.Highlight
+	GuvenliSil(
+		veri.Vurgula
 	)
 
-	SafeDestroy(
-		object.Billboard
+	GuvenliSil(
+		veri.Etiket
 	)
 
-	ESPObjects[player] =
+	ESPNesneleri[oyuncu] =
 		nil
 end
 
 --============================================================
--- ESP ADD
+-- ESP EKLE
 --============================================================
 
-local function AddESP(player)
+local function ESPEkle(
+	oyuncu
+)
 
-	if not player
-		or player == LocalPlayer then
+	if not oyuncu
+		or oyuncu == YerelOyuncu then
 
 		return
 	end
 
-	if not State.ESP then
+	if not Durum.ESP then
 		return
 	end
 
-	if not IsAlive(player) then
+	if not YasiyorMu(
+		oyuncu
+	) then
+
 		return
 	end
 
-	local character =
-		GetCharacter(player)
+	if AYAR.ESP_TAKIM_KONTROLU
+		and AyniTakimMi(
+			oyuncu
+		) then
 
-	if not character then
 		return
 	end
 
-	local head =
-		character:FindFirstChild(
+	local karakter =
+		KarakterAl(
+			oyuncu
+		)
+
+	if not karakter then
+		return
+	end
+
+	local kafa =
+		karakter:FindFirstChild(
 			"Head"
 		)
 
-	if not head
-		or not head:IsA("BasePart") then
+	if not kafa
+		or not kafa:IsA("BasePart") then
 
 		return
 	end
 
-	RemoveESP(player)
+	ESPSil(
+		oyuncu
+	)
 
 	--========================================================
 	-- HIGHLIGHT
 	--========================================================
 
-	local highlight =
-		Instance.new("Highlight")
+	local vurgula =
+		Instance.new(
+			"Highlight"
+		)
 
-	highlight.Name =
-		"PlayerControlESP"
+	vurgula.Name =
+		"OyuncuESP"
 
-	highlight.Adornee =
-		character
+	vurgula.Adornee =
+		karakter
 
-	highlight.DepthMode =
-		CONFIG.ESP_THROUGH_WALLS
+	vurgula.FillColor =
+		AYAR.ESP_RENK
+
+	vurgula.OutlineColor =
+		Color3.fromRGB(
+			255,
+			255,
+			255
+		)
+
+	vurgula.FillTransparency =
+		AYAR.ESP_DOLGU
+
+	vurgula.OutlineTransparency =
+		0
+
+	vurgula.DepthMode =
+		AYAR.ESP_DUVAR_ARKASI
 		and Enum.HighlightDepthMode.AlwaysOnTop
 		or Enum.HighlightDepthMode.Occluded
 
-	highlight.FillColor =
-		CONFIG.ESP_COLOR
-
-	highlight.FillTransparency =
-		CONFIG.ESP_FILL
-
-	highlight.OutlineColor =
-		COLOR.TEXT
-
-	highlight.OutlineTransparency =
-		CONFIG.ESP_OUTLINE
-
-	highlight.Parent =
-		character
+	-- Highlight'i Workspace altinda tutuyoruz.
+	vurgula.Parent =
+		karakter
 
 	--========================================================
-	-- BILLBOARD
+	-- ISIM ETIKETI
 	--========================================================
 
-	local billboard = nil
+	local etiket = nil
 
-	if CONFIG.ESP_SHOW_NAMES then
+	if AYAR.ESP_ISIM then
 
-		billboard =
+		etiket =
 			Instance.new(
 				"BillboardGui"
 			)
 
-		billboard.Name =
-			"PlayerControlESPName"
+		etiket.Name =
+			"OyuncuESPIsim"
 
-		billboard.Adornee =
-			head
+		etiket.Adornee =
+			kafa
 
-		billboard.Size =
+		etiket.Size =
 			UDim2.fromOffset(
-				220,
-				46
+				190,
+				55
 			)
 
-		billboard.StudsOffset =
+		etiket.StudsOffset =
 			Vector3.new(
 				0,
-				3.2,
+				3.4,
 				0
 			)
 
-		billboard.AlwaysOnTop =
+		etiket.AlwaysOnTop =
 			true
 
-		billboard.MaxDistance =
-			CONFIG.ESP_DISTANCE
+		etiket.MaxDistance =
+			AYAR.ESP_MESAFE
 
-		billboard.Parent =
-			PlayerGui
+		etiket.Parent =
+			kafa
 
-		local label =
+		local yazi =
 			Instance.new(
 				"TextLabel"
 			)
 
-		label.Size =
-			UDim2.fromScale(
+		yazi.Name =
+			"Isim"
+
+		yazi.Size =
+			UDim2.new(
 				1,
-				1
+				0,
+				0,
+				22
 			)
 
-		label.BackgroundTransparency =
+		yazi.Position =
+			UDim2.fromOffset(
+				0,
+				0
+			)
+
+		yazi.BackgroundTransparency =
 			1
 
-		local text =
-			player.DisplayName
+		yazi.TextColor3 =
+			AYAR.ESP_RENK
 
-		if CONFIG.ESP_SHOW_HEALTH then
-
-			local humanoid =
-				GetHumanoid(player)
-
-			if humanoid then
-
-				text =
-					text ..
-					"  |  HP " ..
-					math.floor(
-						humanoid.Health
-					)
-
-			end
-		end
-
-		label.Text =
-			text
-
-		label.TextColor3 =
-			CONFIG.ESP_COLOR
-
-		label.TextStrokeColor3 =
+		yazi.TextStrokeColor3 =
 			Color3.fromRGB(
 				0,
 				0,
 				0
 			)
 
-		label.TextStrokeTransparency =
+		yazi.TextStrokeTransparency =
 			0
 
-		label.Font =
+		yazi.Font =
 			Enum.Font.GothamBold
 
-		label.TextSize =
+		yazi.TextSize =
 			12
 
-		label.Parent =
-			billboard
+		yazi.Text =
+			oyuncu.DisplayName
+
+		yazi.Parent =
+			etiket
+
+		--====================================================
+		-- ALT BILGI
+		--====================================================
+
+		local alt =
+			Instance.new(
+				"TextLabel"
+			)
+
+		alt.Name =
+			"Bilgi"
+
+		alt.Size =
+			UDim2.new(
+				1,
+				0,
+				0,
+				18
+			)
+
+		alt.Position =
+			UDim2.fromOffset(
+				0,
+				22
+			)
+
+		alt.BackgroundTransparency =
+			1
+
+		alt.TextColor3 =
+			Color3.fromRGB(
+				230,
+				230,
+				235
+			)
+
+		alt.TextStrokeColor3 =
+			Color3.fromRGB(
+				0,
+				0,
+				0
+			)
+
+		alt.TextStrokeTransparency =
+			0
+
+		alt.Font =
+			Enum.Font.Gotham
+
+		alt.TextSize =
+			9
+
+		alt.Parent =
+			etiket
 	end
 
-	ESPObjects[player] = {
+	ESPNesneleri[oyuncu] = {
 
-		Highlight =
-			highlight,
+		Vurgula =
+			vurgula,
 
-		Billboard =
-			billboard,
+		Etiket =
+			etiket,
 
-		Character =
-			character,
+		Karakter =
+			karakter,
 	}
 end
 
 --============================================================
--- ESP REFRESH
+-- ESP GUNCELLE
 --============================================================
 
-RefreshESP = function()
+local function ESPYenile()
 
-	for player in pairs(
-		ESPObjects
+	for oyuncu in pairs(
+		ESPNesneleri
 	) do
 
-		RemoveESP(player)
+		ESPSil(
+			oyuncu
+		)
 	end
 
-	if not State.ESP then
+	if not Durum.ESP then
 		return
 	end
 
-	for _, player in ipairs(
-		Players:GetPlayers()
+	for _, oyuncu in ipairs(
+		Oyuncular:GetPlayers()
 	) do
 
-		if player ~= LocalPlayer then
-			AddESP(player)
-		end
+		if oyuncu ~=
+			YerelOyuncu then
 
-	end
-end
-
---============================================================
--- ESP UPDATE LOOP
---============================================================
-
-task.spawn(function()
-
-	while true do
-
-		task.wait(0.25)
-
-		if not ScreenGui
-			or not ScreenGui.Parent then
-
-			break
-		end
-
-		if State.ESP then
-
-			for _, player in ipairs(
-				Players:GetPlayers()
-			) do
-
-				if player ~= LocalPlayer then
-
-					local character =
-						GetCharacter(player)
-
-					local data =
-						ESPObjects[player]
-
-					if not character then
-
-						RemoveESP(player)
-
-					elseif not data
-						or data.Character
-							~= character then
-
-						AddESP(player)
-
-					end
-				end
-			end
+			ESPEkle(
+				oyuncu
+			)
 		end
 	end
-end)
-
---============================================================
--- CHARACTER LOAD
---============================================================
-
-local function StopGod()
-
-	if GodConnection then
-
-		GodConnection:Disconnect()
-
-		GodConnection = nil
-	end
-end
-
-local function RestoreCollision()
-
-	for part, oldValue in pairs(
-		CollisionMemory
-	) do
-
-		if part
-			and part.Parent then
-
-			part.CanCollide =
-				oldValue
-		end
-	end
-
-	table.clear(
-		CollisionMemory
-	)
-end
-
-local function StopFly()
-
-	if FlyVelocity then
-
-		SafeDestroy(
-			FlyVelocity
-		)
-
-		FlyVelocity = nil
-	end
-
-	if FlyOrientation then
-
-		SafeDestroy(
-			FlyOrientation
-		)
-
-		FlyOrientation = nil
-	end
-
-	if FlyAttachment then
-
-		SafeDestroy(
-			FlyAttachment
-		)
-
-		FlyAttachment = nil
-	end
-
-	if Humanoid then
-
-		Humanoid.AutoRotate =
-			OriginalAutoRotate
-	end
-end
-
-local function StartFly()
-
-	StopFly()
-
-	if not RootPart then
-		return false
-	end
-
-	--========================================================
-	-- ATTACHMENT
-	--========================================================
-
-	FlyAttachment =
-		Instance.new(
-			"Attachment"
-		)
-
-	FlyAttachment.Name =
-		"PlayerControlFlyAttachment"
-
-	FlyAttachment.Parent =
-		RootPart
-
-	--========================================================
-	-- LINEAR VELOCITY
-	--========================================================
-
-	FlyVelocity =
-		Instance.new(
-			"LinearVelocity"
-		)
-
-	FlyVelocity.Name =
-		"PlayerControlFlyVelocity"
-
-	FlyVelocity.Attachment0 =
-		FlyAttachment
-
-	FlyVelocity.RelativeTo =
-		Enum.ActuatorRelativeTo.World
-
-	FlyVelocity.VelocityConstraintMode =
-		Enum.VelocityConstraintMode.Vector
-
-	FlyVelocity.ForceLimitsEnabled =
-		false
-
-	FlyVelocity.VectorVelocity =
-		Vector3.zero
-
-	FlyVelocity.Parent =
-		RootPart
-
-	--========================================================
-	-- ORIENTATION
-	--========================================================
-
-	FlyOrientation =
-		Instance.new(
-			"AlignOrientation"
-		)
-
-	FlyOrientation.Name =
-		"PlayerControlFlyOrientation"
-
-	FlyOrientation.Attachment0 =
-		FlyAttachment
-
-	FlyOrientation.Mode =
-		Enum.OrientationAlignmentMode.OneAttachment
-
-	FlyOrientation.RigidityEnabled =
-		false
-
-	FlyOrientation.Responsiveness =
-		200
-
-	FlyOrientation.MaxTorque =
-		math.huge
-
-	FlyOrientation.MaxAngularVelocity =
-		math.huge
-
-	FlyOrientation.CFrame =
-		RootPart.CFrame
-
-	FlyOrientation.Parent =
-		RootPart
-
-	if Humanoid then
-
-		Humanoid.AutoRotate =
-			false
-	end
-
-	return true
 end
 
 --============================================================
--- GOD START
+-- GOD DURDUR
 --============================================================
 
-local function StartGod()
+local function GodDurdur()
 
-	StopGod()
+	if GodBaglantisi then
+
+		GodBaglantisi:Disconnect()
+
+		GodBaglantisi = nil
+	end
+end
+
+--============================================================
+-- GOD BASLAT
+--============================================================
+
+local function GodBaslat()
+
+	GodDurdur()
 
 	if not Humanoid
-		or not Character then
+		or not Karakter then
 
 		return false
 	end
@@ -1502,11 +1213,11 @@ local function StartGod()
 	Humanoid.Health =
 		Humanoid.MaxHealth
 
-	GodConnection =
+	GodBaglantisi =
 		Humanoid.HealthChanged:Connect(
 			function()
 
-				if not State.God then
+				if not Durum.God then
 					return
 				end
 
@@ -1529,282 +1240,400 @@ local function StartGod()
 end
 
 --============================================================
--- CHARACTER REFRESH
+-- FLY DURDUR
 --============================================================
 
-local function RefreshCharacter()
+local function FlyDurdur()
 
-	Character =
-		LocalPlayer.Character
+	GuvenliSil(
+		FlyHiz
+	)
 
-	if not Character then
+	GuvenliSil(
+		FlyYon
+	)
 
-		Humanoid = nil
-		RootPart = nil
+	GuvenliSil(
+		FlyEklenti
+	)
 
+	FlyHiz = nil
+	FlyYon = nil
+	FlyEklenti = nil
+
+	if Humanoid then
+
+		Humanoid.AutoRotate =
+			OrijinalAutoRotate
+	end
+end
+
+--============================================================
+-- FLY BASLAT
+--============================================================
+
+local function FlyBaslat()
+
+	FlyDurdur()
+
+	if not Govde then
 		return false
 	end
 
-	Humanoid =
-		Character:FindFirstChildOfClass(
-			"Humanoid"
+	FlyEklenti =
+		Instance.new(
+			"Attachment"
 		)
 
-	RootPart =
-		Character:FindFirstChild(
-			"HumanoidRootPart"
+	FlyEklenti.Name =
+		"OyuncuKontrolFlyEklenti"
+
+	FlyEklenti.Parent =
+		Govde
+
+	--========================================================
+	-- LINEAR VELOCITY
+	--========================================================
+
+	FlyHiz =
+		Instance.new(
+			"LinearVelocity"
 		)
 
-	if not Humanoid
-		or not RootPart then
+	FlyHiz.Name =
+		"OyuncuKontrolFlyHiz"
 
-		return false
+	FlyHiz.Attachment0 =
+		FlyEklenti
+
+	FlyHiz.RelativeTo =
+		Enum.ActuatorRelativeTo.World
+
+	FlyHiz.VelocityConstraintMode =
+		Enum.VelocityConstraintMode.Vector
+
+	FlyHiz.ForceLimitsEnabled =
+		false
+
+	FlyHiz.VectorVelocity =
+		Vector3.zero
+
+	FlyHiz.Parent =
+		Govde
+
+	--========================================================
+	-- ALIGN ORIENTATION
+	--========================================================
+
+	FlyYon =
+		Instance.new(
+			"AlignOrientation"
+		)
+
+	FlyYon.Name =
+		"OyuncuKontrolFlyYon"
+
+	FlyYon.Attachment0 =
+		FlyEklenti
+
+	FlyYon.Mode =
+		Enum.OrientationAlignmentMode.OneAttachment
+
+	FlyYon.RigidityEnabled =
+		false
+
+	FlyYon.Responsiveness =
+		200
+
+	FlyYon.MaxTorque =
+		math.huge
+
+	FlyYon.MaxAngularVelocity =
+		math.huge
+
+	FlyYon.CFrame =
+		Govde.CFrame
+
+	FlyYon.Parent =
+		Govde
+
+	if Humanoid then
+		Humanoid.AutoRotate =
+			false
 	end
-
-	OriginalWalkSpeed =
-		Humanoid.WalkSpeed
-
-	OriginalUseJumpPower =
-		Humanoid.UseJumpPower
-
-	OriginalJumpPower =
-		Humanoid.JumpPower
-
-	OriginalJumpHeight =
-		Humanoid.JumpHeight
-
-	OriginalAutoRotate =
-		Humanoid.AutoRotate
 
 	return true
 end
 
 --============================================================
--- APPLY STATES
+-- KARAKTER YUKLE
 --============================================================
 
-local function ApplyActiveStates()
+local function KarakterYukle(
+	yeniKarakter
+)
 
-	if not Humanoid then
+	Karakter =
+		yeniKarakter
+
+	Humanoid =
+		yeniKarakter:WaitForChild(
+			"Humanoid",
+			10
+		)
+
+	Govde =
+		yeniKarakter:WaitForChild(
+			"HumanoidRootPart",
+			10
+		)
+
+	if not Humanoid
+		or not Govde then
+
 		return
 	end
 
-	if State.Speed then
+	OrijinalHiz =
+		Humanoid.WalkSpeed
+
+	OrijinalJumpPowerKullan =
+		Humanoid.UseJumpPower
+
+	OrijinalJumpPower =
+		Humanoid.JumpPower
+
+	OrijinalJumpHeight =
+		Humanoid.JumpHeight
+
+	OrijinalAutoRotate =
+		Humanoid.AutoRotate
+
+	if Durum.Hiz then
 
 		Humanoid.WalkSpeed =
-			CONFIG.SPEED
+			AYAR.HIZ
 	end
 
-	if State.Jump then
+	if Durum.Ziplama then
 
 		if Humanoid.UseJumpPower then
 
 			Humanoid.JumpPower =
-				CONFIG.JUMP
+				AYAR.ZIPLAMA
 
 		else
 
 			Humanoid.JumpHeight =
-				CONFIG.JUMP
+				AYAR.ZIPLAMA
 		end
 	end
 
-	if State.God then
-		StartGod()
+	if Durum.God then
+		GodBaslat()
 	end
 
-	if State.Fly then
-		StartFly()
+	if Durum.Fly then
+
+		task.defer(
+			function()
+
+				if Durum.Fly then
+					FlyBaslat()
+				end
+			end
+		)
 	end
+
+	AimTemizle()
 end
 
 --============================================================
--- CHARACTER ADDED
+-- ILK KARAKTER
 --============================================================
 
-LocalPlayer.CharacterAdded:Connect(
-	function(character)
+if YerelOyuncu.Character then
 
-		StopGod()
-		StopFly()
+	task.spawn(
+		function()
 
-		RestoreCollision()
-
-		ClearAim()
-
-		Character = character
-		Humanoid = nil
-		RootPart = nil
-
-		task.spawn(function()
-
-			local humanoid =
-				character:WaitForChild(
-					"Humanoid",
-					10
-				)
-
-			local root =
-				character:WaitForChild(
-					"HumanoidRootPart",
-					10
-				)
-
-			if LocalPlayer.Character
-				~= character then
-
-				return
-			end
-
-			Humanoid =
-				humanoid
-
-			RootPart =
-				root
-
-			OriginalWalkSpeed =
-				Humanoid.WalkSpeed
-
-			OriginalUseJumpPower =
-				Humanoid.UseJumpPower
-
-			OriginalJumpPower =
-				Humanoid.JumpPower
-
-			OriginalJumpHeight =
-				Humanoid.JumpHeight
-
-			OriginalAutoRotate =
-				Humanoid.AutoRotate
-
-			task.wait(0.1)
-
-			ApplyActiveStates()
-
-			if State.Noclip then
-
-				table.clear(
-					CollisionMemory
-				)
-			end
-
-			if State.ESP then
-				RefreshESP()
-			end
-
-			SetStatus(
-				"Yeni karakter algılandı.\n" ..
-				"Aktif özellikler yeniden uygulandı."
+			KarakterYukle(
+				YerelOyuncu.Character
 			)
-		end)
+		end
+	)
+end
+
+--============================================================
+-- YENI KARAKTER
+--============================================================
+
+YerelOyuncu.CharacterAdded:Connect(
+	function(
+		yeniKarakter
+	)
+
+	-- Eski karakter sistemleri
+	GodDurdur()
+	FlyDurdur()
+
+	for parca,
+		eskiDeger in pairs(
+			Carpismalar
+		) do
+
+		if parca
+			and parca.Parent then
+
+			parca.CanCollide =
+				eskiDeger
+		end
 	end
-)
 
-RefreshCharacter()
+	table.clear(
+		Carpismalar
+	)
+
+	AimTemizle()
+
+	Karakter = yeniKarakter
+	Humanoid = nil
+	Govde = nil
+
+	task.spawn(
+		function()
+
+			KarakterYukle(
+				yeniKarakter
+			)
+
+			task.wait(
+				0.15
+			)
+
+			if Durum.ESP then
+				ESPYenile()
+			end
+
+			DurumGuncelle(
+				"Yeni karakter algilandi • Sistemler yeniden kuruldu.",
+				2
+			)
+		end
+	)
+end)
 
 --============================================================
--- GUI CREATION
+-- SCREEN GUI
 --============================================================
 
-ScreenGui =
+AnaArayuz =
 	Instance.new(
 		"ScreenGui"
 	)
 
-ScreenGui.Name =
-	"PlayerControl_ADVANCED"
+AnaArayuz.Name =
+	"OyuncuKontrol"
 
-ScreenGui.ResetOnSpawn =
+AnaArayuz.ResetOnSpawn =
 	false
 
-ScreenGui.IgnoreGuiInset =
+AnaArayuz.IgnoreGuiInset =
 	true
 
-ScreenGui.ZIndexBehavior =
+AnaArayuz.ZIndexBehavior =
 	Enum.ZIndexBehavior.Sibling
 
-ScreenGui.DisplayOrder =
+AnaArayuz.DisplayOrder =
 	9999
 
-ScreenGui.Parent =
-	PlayerGui
+AnaArayuz.Enabled =
+	true
+
+AnaArayuz.Parent =
+	OyuncuArayuzu
 
 --============================================================
--- MAIN
+-- ANA PANEL
 --============================================================
 
-Main =
+AnaPanel =
 	Instance.new(
 		"Frame"
 	)
 
-Main.Name =
-	"Main"
+AnaPanel.Name =
+	"AnaPanel"
 
-Main.Size =
+AnaPanel.Size =
 	UDim2.fromOffset(
-		CONFIG.PANEL_WIDTH,
-		CONFIG.PANEL_HEIGHT
+		400,
+		570
 	)
 
-Main.Position =
+AnaPanel.Position =
 	UDim2.new(
 		0,
 		20,
 		0.5,
-		-(CONFIG.PANEL_HEIGHT / 2)
+		-285
 	)
 
-Main.BackgroundColor3 =
-	COLOR.PANEL
+AnaPanel.BackgroundColor3 =
+	Color3.fromRGB(
+		16,
+		18,
+		25
+	)
 
-Main.BorderSizePixel =
+AnaPanel.BorderSizePixel =
 	0
 
-Main.Parent =
-	ScreenGui
+AnaPanel.Parent =
+	AnaArayuz
 
-local MainCorner =
+local AnaKose =
 	Instance.new(
 		"UICorner"
 	)
 
-MainCorner.CornerRadius =
+AnaKose.CornerRadius =
 	UDim.new(
 		0,
 		18
 	)
 
-MainCorner.Parent =
-	Main
+AnaKose.Parent =
+	AnaPanel
 
-local MainStroke =
+local AnaCizgi =
 	Instance.new(
 		"UIStroke"
 	)
 
-MainStroke.Color =
-	COLOR.BORDER
+AnaCizgi.Color =
+	Color3.fromRGB(
+		62,
+		68,
+		84
+	)
 
-MainStroke.Transparency =
-	0.35
+AnaCizgi.Transparency =
+	0.25
 
-MainStroke.Thickness =
-	1
-
-MainStroke.Parent =
-	Main
+AnaCizgi.Parent =
+	AnaPanel
 
 --============================================================
--- HEADER
+-- BASLIK
 --============================================================
 
-local Header =
+local Baslik =
 	Instance.new(
 		"Frame"
 	)
 
-Header.Size =
+Baslik.Size =
 	UDim2.new(
 		1,
 		0,
@@ -1812,28 +1641,32 @@ Header.Size =
 		72
 	)
 
-Header.BackgroundColor3 =
-	COLOR.HEADER
+Baslik.BackgroundColor3 =
+	Color3.fromRGB(
+		23,
+		26,
+		35
+	)
 
-Header.BorderSizePixel =
+Baslik.BorderSizePixel =
 	0
 
-Header.Parent =
-	Main
+Baslik.Parent =
+	AnaPanel
 
-local HeaderCorner =
+local BaslikKose =
 	Instance.new(
 		"UICorner"
 	)
 
-HeaderCorner.CornerRadius =
+BaslikKose.CornerRadius =
 	UDim.new(
 		0,
 		18
 	)
 
-HeaderCorner.Parent =
-	Header
+BaslikKose.Parent =
+	Baslik
 
 --============================================================
 -- LOGO
@@ -1846,370 +1679,457 @@ local Logo =
 
 Logo.Size =
 	UDim2.fromOffset(
-		42,
-		42
+		43,
+		43
 	)
 
 Logo.Position =
 	UDim2.fromOffset(
 		14,
-		15
+		14
 	)
 
 Logo.BackgroundColor3 =
 	Color3.fromRGB(
-		35,
-		39,
-		51
+		37,
+		42,
+		55
 	)
 
 Logo.BorderSizePixel =
 	0
 
 Logo.Parent =
-	Header
+	Baslik
 
-local LogoCorner =
+local LogoKose =
 	Instance.new(
 		"UICorner"
 	)
 
-LogoCorner.CornerRadius =
+LogoKose.CornerRadius =
 	UDim.new(
 		0,
 		12
 	)
 
-LogoCorner.Parent =
+LogoKose.Parent =
 	Logo
 
-local LogoText =
+local LogoYazi =
 	Instance.new(
 		"TextLabel"
 	)
 
-LogoText.Size =
+LogoYazi.Size =
 	UDim2.fromScale(
 		1,
 		1
 	)
 
-LogoText.BackgroundTransparency =
+LogoYazi.BackgroundTransparency =
 	1
 
-LogoText.Text =
+LogoYazi.Text =
 	"PC"
 
-LogoText.TextColor3 =
-	COLOR.TEXT
+LogoYazi.TextColor3 =
+	Color3.fromRGB(
+		245,
+		247,
+		250
+	)
 
-LogoText.Font =
+LogoYazi.Font =
 	Enum.Font.GothamBold
 
-LogoText.TextSize =
+LogoYazi.TextSize =
 	12
 
-LogoText.Parent =
+LogoYazi.Parent =
 	Logo
 
 --============================================================
--- TITLE
+-- BASLIK YAZI
 --============================================================
 
-local Title =
+local BaslikYazi =
 	Instance.new(
 		"TextLabel"
 	)
 
-Title.Size =
+BaslikYazi.Size =
 	UDim2.new(
 		1,
-		-140,
+		-160,
 		0,
-		22
+		23
 	)
 
-Title.Position =
+BaslikYazi.Position =
 	UDim2.fromOffset(
 		68,
-		13
+		11
 	)
 
-Title.BackgroundTransparency =
+BaslikYazi.BackgroundTransparency =
 	1
 
-Title.Text =
-	"PLAYER CONTROL"
+BaslikYazi.Text =
+	"O Y U N C U   K O N T R O L"
 
-Title.TextColor3 =
-	COLOR.TEXT
+BaslikYazi.TextColor3 =
+	Color3.fromRGB(
+		245,
+		247,
+		250
+	)
 
-Title.Font =
+BaslikYazi.Font =
 	Enum.Font.GothamBold
 
-Title.TextSize =
-	16
+BaslikYazi.TextSize =
+	14
 
-Title.TextXAlignment =
+BaslikYazi.TextXAlignment =
 	Enum.TextXAlignment.Left
 
-Title.Parent =
-	Header
+BaslikYazi.Parent =
+	Baslik
 
-local Subtitle =
+local AltBaslik =
 	Instance.new(
 		"TextLabel"
 	)
 
-Subtitle.Size =
+AltBaslik.Size =
 	UDim2.new(
 		1,
-		-140,
+		-160,
 		0,
 		17
 	)
 
-Subtitle.Position =
+AltBaslik.Position =
 	UDim2.fromOffset(
 		68,
-		38
+		37
 	)
 
-Subtitle.BackgroundTransparency =
+AltBaslik.BackgroundTransparency =
 	1
 
-Subtitle.Text =
-	"Advanced local control"
+AltBaslik.Text =
+	"Gelismis yerel kontrol paneli"
 
-Subtitle.TextColor3 =
-	COLOR.SUB
+AltBaslik.TextColor3 =
+	Color3.fromRGB(
+		145,
+		151,
+		165
+	)
 
-Subtitle.Font =
+AltBaslik.Font =
 	Enum.Font.Gotham
 
-Subtitle.TextSize =
+AltBaslik.TextSize =
 	8
 
-Subtitle.TextXAlignment =
+AltBaslik.TextXAlignment =
 	Enum.TextXAlignment.Left
 
-Subtitle.Parent =
-	Header
+AltBaslik.Parent =
+	Baslik
 
 --============================================================
--- CLOSE
+-- HAZIR
 --============================================================
 
-local Close =
+local Hazir =
+	Instance.new(
+		"TextLabel"
+	)
+
+Hazir.Size =
+	UDim2.fromOffset(
+		68,
+		22
+	)
+
+Hazir.Position =
+	UDim2.new(
+		1,
+		-114,
+		0,
+		12
+	)
+
+Hazir.BackgroundColor3 =
+	Color3.fromRGB(
+		26,
+		65,
+		44
+	)
+
+Hazir.BorderSizePixel =
+	0
+
+Hazir.Text =
+	"● HAZIR"
+
+Hazir.TextColor3 =
+	Color3.fromRGB(
+		90,
+		225,
+		135
+	)
+
+Hazir.Font =
+	Enum.Font.GothamBold
+
+Hazir.TextSize =
+	8
+
+Hazir.Parent =
+	Baslik
+
+local HazirKose =
+	Instance.new(
+		"UICorner"
+	)
+
+HazirKose.CornerRadius =
+	UDim.new(
+		1,
+		0
+	)
+
+HazirKose.Parent =
+	Hazir
+
+--============================================================
+-- KUCUlt
+--============================================================
+
+local Kucult =
 	Instance.new(
 		"TextButton"
 	)
 
-Close.Size =
+Kucult.Size =
 	UDim2.fromOffset(
 		28,
 		28
 	)
 
-Close.Position =
+Kucult.Position =
 	UDim2.new(
 		1,
-		-40,
+		-75,
 		0,
-		12
+		9
 	)
 
-Close.BackgroundColor3 =
+Kucult.BackgroundColor3 =
 	Color3.fromRGB(
-		42,
-		46,
-		58
+		44,
+		48,
+		60
 	)
 
-Close.BorderSizePixel =
+Kucult.BorderSizePixel =
 	0
 
-Close.Text =
-	"X"
+Kucult.Text =
+	"—"
 
-Close.TextColor3 =
-	COLOR.TEXT
+Kucult.TextColor3 =
+	Color3.fromRGB(
+		245,
+		247,
+		250
+	)
 
-Close.Font =
+Kucult.Font =
 	Enum.Font.GothamBold
 
-Close.TextSize =
-	9
+Kucult.TextSize =
+	12
 
-Close.AutoButtonColor =
+Kucult.AutoButtonColor =
 	false
 
-Close.Parent =
-	Header
+Kucult.Parent =
+	Baslik
 
-local CloseCorner =
+local KucultKose =
 	Instance.new(
 		"UICorner"
 	)
 
-CloseCorner.CornerRadius =
+KucultKose.CornerRadius =
 	UDim.new(
 		0,
 		9
 	)
 
-CloseCorner.Parent =
-	Close
+KucultKose.Parent =
+	Kucult
 
 --============================================================
--- READY BADGE
+-- KAPAT
 --============================================================
 
-local Ready =
+local Kapat =
 	Instance.new(
-		"TextLabel"
+		"TextButton"
 	)
 
-Ready.Size =
+Kapat.Size =
 	UDim2.fromOffset(
-		70,
-		22
+		28,
+		28
 	)
 
-Ready.Position =
+Kapat.Position =
 	UDim2.new(
 		1,
-		-117,
+		-41,
 		0,
-		17
+		9
 	)
 
-Ready.BackgroundColor3 =
-	COLOR.GREEN_DARK
+Kapat.BackgroundColor3 =
+	Color3.fromRGB(
+		125,
+		49,
+		57
+	)
 
-Ready.BorderSizePixel =
+Kapat.BorderSizePixel =
 	0
 
-Ready.Text =
-	"● READY"
+Kapat.Text =
+	"X"
 
-Ready.TextColor3 =
-	COLOR.GREEN
+Kapat.TextColor3 =
+	Color3.fromRGB(
+		255,
+		255,
+		255
+	)
 
-Ready.Font =
+Kapat.Font =
 	Enum.Font.GothamBold
 
-Ready.TextSize =
-	8
+Kapat.TextSize =
+	9
 
-Ready.Parent =
-	Header
+Kapat.AutoButtonColor =
+	false
 
-local ReadyCorner =
+Kapat.Parent =
+	Baslik
+
+local KapatKose =
 	Instance.new(
 		"UICorner"
 	)
 
-ReadyCorner.CornerRadius =
+KapatKose.CornerRadius =
 	UDim.new(
-		1,
-		0
+		0,
+		9
 	)
 
-ReadyCorner.Parent =
-	Ready
+KapatKose.Parent =
+	Kapat
 
 --============================================================
--- TABS
+-- SEKME BAR
 --============================================================
 
-local TabBar =
+local SekmeBar =
 	Instance.new(
 		"Frame"
 	)
 
-TabBar.Size =
+SekmeBar.Size =
 	UDim2.new(
 		1,
 		-20,
 		0,
-		40
+		38
 	)
 
-TabBar.Position =
+SekmeBar.Position =
 	UDim2.fromOffset(
 		10,
-		80
+		81
 	)
 
-TabBar.BackgroundTransparency =
+SekmeBar.BackgroundTransparency =
 	1
 
-TabBar.Parent =
-	Main
+SekmeBar.Parent =
+	AnaPanel
 
-local TabLayout =
+local SekmeDuzen =
 	Instance.new(
 		"UIListLayout"
 	)
 
-TabLayout.FillDirection =
+SekmeDuzen.FillDirection =
 	Enum.FillDirection.Horizontal
 
-TabLayout.HorizontalAlignment =
-	Enum.HorizontalAlignment.Left
-
-TabLayout.VerticalAlignment =
-	Enum.VerticalAlignment.Center
-
-TabLayout.Padding =
+SekmeDuzen.Padding =
 	UDim.new(
 		0,
 		6
 	)
 
-TabLayout.Parent =
-	TabBar
+SekmeDuzen.Parent =
+	SekmeBar
 
 --============================================================
--- CONTENT HOLDER
+-- ICERIK
 --============================================================
 
-Content =
+local Icerik =
 	Instance.new(
 		"Frame"
 	)
 
-Content.Size =
+Icerik.Size =
 	UDim2.new(
 		1,
 		-20,
 		1,
-		-172
+		-168
 	)
 
-Content.Position =
+Icerik.Position =
 	UDim2.fromOffset(
 		10,
-		126
+		125
 	)
 
-Content.BackgroundTransparency =
+Icerik.BackgroundTransparency =
 	1
 
-Content.Parent =
-	Main
+Icerik.Parent =
+	AnaPanel
 
 --============================================================
--- STATUS
+-- DURUM KARTI
 --============================================================
 
-local StatusCard =
+local DurumKart =
 	Instance.new(
 		"Frame"
 	)
 
-StatusCard.Size =
+DurumKart.Size =
 	UDim2.new(
 		1,
 		-20,
@@ -2217,360 +2137,382 @@ StatusCard.Size =
 		34
 	)
 
-StatusCard.Position =
+DurumKart.Position =
 	UDim2.new(
 		0,
 		10,
 		1,
-		-45
+		-44
 	)
 
-StatusCard.BackgroundColor3 =
+DurumKart.BackgroundColor3 =
 	Color3.fromRGB(
-		22,
-		25,
-		34
+		21,
+		24,
+		32
 	)
 
-StatusCard.BorderSizePixel =
+DurumKart.BorderSizePixel =
 	0
 
-StatusCard.Parent =
-	Main
+DurumKart.Parent =
+	AnaPanel
 
-local StatusCardCorner =
+local DurumKose =
 	Instance.new(
 		"UICorner"
 	)
 
-StatusCardCorner.CornerRadius =
+DurumKose.CornerRadius =
 	UDim.new(
 		0,
 		10
 	)
 
-StatusCardCorner.Parent =
-	StatusCard
+DurumKose.Parent =
+	DurumKart
 
-Status =
+DurumYazisi =
 	Instance.new(
 		"TextLabel"
 	)
 
-Status.Size =
+DurumYazisi.Size =
 	UDim2.new(
 		1,
-		-20,
+		-18,
 		1,
 		0
 	)
 
-Status.Position =
+DurumYazisi.Position =
 	UDim2.fromOffset(
-		10,
+		9,
 		0
 	)
 
-Status.BackgroundTransparency =
+DurumYazisi.BackgroundTransparency =
 	1
 
-Status.Text =
-	"Panel hazır."
+DurumYazisi.Text =
+	"Panel hazir."
 
-Status.TextColor3 =
-	COLOR.SUB
+DurumYazisi.TextColor3 =
+	Color3.fromRGB(
+		150,
+		157,
+		171
+	)
 
-Status.Font =
+DurumYazisi.Font =
 	Enum.Font.Gotham
 
-Status.TextSize =
+DurumYazisi.TextSize =
 	8
 
-Status.TextXAlignment =
+DurumYazisi.TextXAlignment =
 	Enum.TextXAlignment.Left
 
-Status.TextTruncate =
+DurumYazisi.TextTruncate =
 	Enum.TextTruncate.AtEnd
 
-Status.Parent =
-	StatusCard
+DurumYazisi.Parent =
+	DurumKart
 
 --============================================================
--- PAGE CREATOR
+-- SAYFA OLUSTURUCU
 --============================================================
 
-local function CreatePage(name)
+local function SayfaOlustur(
+	ad
+)
 
-	local page =
+	local Sayfa =
 		Instance.new(
 			"ScrollingFrame"
 		)
 
-	page.Name =
-		name .. "Page"
+	Sayfa.Name =
+		ad .. "Sayfa"
 
-	page.Size =
+	Sayfa.Size =
 		UDim2.fromScale(
 			1,
 			1
 		)
 
-	page.BackgroundTransparency =
+	Sayfa.BackgroundTransparency =
 		1
 
-	page.BorderSizePixel =
+	Sayfa.BorderSizePixel =
 		0
 
-	page.ScrollBarThickness =
+	Sayfa.ScrollBarThickness =
 		3
 
-	page.ScrollBarImageColor3 =
-		COLOR.BORDER
+	Sayfa.ScrollBarImageColor3 =
+		Color3.fromRGB(
+			62,
+			68,
+			84
+		)
 
-	page.AutomaticCanvasSize =
+	Sayfa.AutomaticCanvasSize =
 		Enum.AutomaticSize.Y
 
-	page.CanvasSize =
+	Sayfa.CanvasSize =
 		UDim2.fromOffset(
 			0,
 			0
 		)
 
-	page.Visible =
+	Sayfa.Visible =
 		false
 
-	page.Parent =
-		Content
+	Sayfa.Parent =
+		Icerik
 
-	local padding =
+	local Dolgu =
 		Instance.new(
 			"UIPadding"
 		)
 
-	padding.PaddingTop =
+	Dolgu.PaddingTop =
 		UDim.new(
 			0,
 			4
 		)
 
-	padding.PaddingBottom =
+	Dolgu.PaddingBottom =
 		UDim.new(
 			0,
-			10
+			12
 		)
 
-	padding.PaddingLeft =
-		UDim.new(
-			0,
-			3
-		)
-
-	padding.PaddingRight =
+	Dolgu.PaddingLeft =
 		UDim.new(
 			0,
 			3
 		)
 
-	padding.Parent =
-		page
+	Dolgu.PaddingRight =
+		UDim.new(
+			0,
+			3
+		)
 
-	local layout =
+	Dolgu.Parent =
+		Sayfa
+
+	local Duzen =
 		Instance.new(
 			"UIListLayout"
 		)
 
-	layout.Padding =
+	Duzen.Padding =
 		UDim.new(
 			0,
 			7
 		)
 
-	layout.SortOrder =
+	Duzen.SortOrder =
 		Enum.SortOrder.LayoutOrder
 
-	layout.Parent =
-		page
+	Duzen.Parent =
+		Sayfa
 
-	Pages[name] =
-		page
+	Sayfalar[ad] =
+		Sayfa
 
-	return page
+	return Sayfa
 end
 
 --============================================================
--- TAB CREATOR
+-- SEKME OLUSTURUCU
 --============================================================
 
-local function CreateTab(
-	name
+local function SekmeOlustur(
+	ad
 )
 
-	local button =
+	local Buton =
 		Instance.new(
 			"TextButton"
 		)
 
-	button.Name =
-		name .. "Tab"
+	Buton.Name =
+		ad .. "Sekme"
 
-	button.Size =
+	Buton.Size =
 		UDim2.fromOffset(
-			92,
+			91,
 			34
 		)
 
-	button.BackgroundColor3 =
-		COLOR.CARD
+	Buton.BackgroundColor3 =
+		Color3.fromRGB(
+			28,
+			31,
+			41
+		)
 
-	button.BorderSizePixel =
+	Buton.BorderSizePixel =
 		0
 
-	button.AutoButtonColor =
+	Buton.AutoButtonColor =
 		false
 
-	button.Text =
-		name
+	Buton.Text =
+		ad
 
-	button.TextColor3 =
-		COLOR.SUB
+	Buton.TextColor3 =
+		Color3.fromRGB(
+			145,
+			151,
+			165
+		)
 
-	button.Font =
+	Buton.Font =
 		Enum.Font.GothamBold
 
-	button.TextSize =
+	Buton.TextSize =
 		8
 
-	button.Parent =
-		TabBar
+	Buton.Parent =
+		SekmeBar
 
-	local corner =
+	local Kose =
 		Instance.new(
 			"UICorner"
 		)
 
-	corner.CornerRadius =
+	Kose.CornerRadius =
 		UDim.new(
-			0,
-			10
-		)
+		0,
+		10
+	)
 
-	corner.Parent =
-		button
+	Kose.Parent =
+		Buton
 
-	Tabs[name] =
-		button
+	Sekmeler[ad] =
+		Buton
 
-	return button
+	return Buton
 end
 
 --============================================================
--- CREATE PAGES
+-- SAYFALAR
 --============================================================
 
-local CombatPage =
-	CreatePage(
-		"Combat"
+local SavasSayfasi =
+	SayfaOlustur(
+		"Savas"
 	)
 
-local MovementPage =
-	CreatePage(
-		"Movement"
+local HareketSayfasi =
+	SayfaOlustur(
+		"Hareket"
 	)
 
-local VisualPage =
-	CreatePage(
-		"Visual"
+local GorunusSayfasi =
+	SayfaOlustur(
+		"Gorunus"
 	)
 
-local SettingsPage =
-	CreatePage(
-		"Settings"
+local AyarlarSayfasi =
+	SayfaOlustur(
+		"Ayarlar"
 	)
 
-local CombatTab =
-	CreateTab(
-		"Combat"
+local SavasSekme =
+	SekmeOlustur(
+		"Savas"
 	)
 
-local MovementTab =
-	CreateTab(
-		"Movement"
+local HareketSekme =
+	SekmeOlustur(
+		"Hareket"
 	)
 
-local VisualTab =
-	CreateTab(
-		"Visual"
+local GorunusSekme =
+	SekmeOlustur(
+		"Gorunus"
 	)
 
-local SettingsTab =
-	CreateTab(
-		"Settings"
+local AyarlarSekme =
+	SekmeOlustur(
+		"Ayarlar"
 	)
 
 --============================================================
--- SECTION
+-- BOLUM
 --============================================================
 
-local function CreateSection(
-	parent,
-	text
+local function Bolum(
+	ebeveyn,
+	yazi
 )
 
-	local label =
+	local etiket =
 		Instance.new(
 			"TextLabel"
 		)
 
-	label.Size =
+	etiket.Size =
 		UDim2.new(
-		1,
-		0,
-		0,
-		24
-	)
+			1,
+			0,
+			0,
+			23
+		)
 
-	label.BackgroundTransparency =
+	etiket.BackgroundTransparency =
 		1
 
-	label.Text =
-		text
+	etiket.Text =
+		yazi
 
-	label.TextColor3 =
-		COLOR.SUB
+	etiket.TextColor3 =
+		Color3.fromRGB(
+			145,
+			151,
+			165
+		)
 
-	label.Font =
+	etiket.Font =
 		Enum.Font.GothamBold
 
-	label.TextSize =
+	etiket.TextSize =
 		8
 
-	label.TextXAlignment =
+	etiket.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	label.Parent =
-		parent
+	etiket.Parent =
+		ebeveyn
 
-	return label
+	return etiket
 end
 
 --============================================================
 -- TOGGLE
 --============================================================
 
-local function CreateToggle(
-	parent,
-	name,
-	description,
-	initial,
-	callback
+local function AcKapat(
+	ebeveyn,
+	ad,
+	aciklama,
+	baslangic,
+	geriCagirma
 )
 
-	local button =
+	local Buton =
 		Instance.new(
 			"TextButton"
 		)
 
-	button.Size =
+	Buton.Size =
 		UDim2.new(
 			1,
 			0,
@@ -2578,144 +2520,142 @@ local function CreateToggle(
 			56
 		)
 
-	button.BackgroundColor3 =
-		COLOR.CARD
+	Buton.BackgroundColor3 =
+		Color3.fromRGB(
+			27,
+			30,
+			40
+		)
 
-	button.BorderSizePixel =
+	Buton.BorderSizePixel =
 		0
 
-	button.AutoButtonColor =
+	Buton.AutoButtonColor =
 		false
 
-	button.Text =
+	Buton.Text =
 		""
 
-	button.Parent =
-		parent
+	Buton.Parent =
+		ebeveyn
 
-	local corner =
+	local Kose =
 		Instance.new(
 			"UICorner"
 		)
 
-	corner.CornerRadius =
+	Kose.CornerRadius =
 		UDim.new(
 			0,
 			11
 		)
 
-	corner.Parent =
-		button
+	Kose.Parent =
+		Buton
 
-	local stroke =
-		Instance.new(
-			"UIStroke"
-		)
-
-	stroke.Color =
-		COLOR.BORDER
-
-	stroke.Transparency =
-		0.65
-
-	stroke.Parent =
-		button
-
-	local title =
+	local Baslik =
 		Instance.new(
 			"TextLabel"
 		)
 
-	title.Size =
+	Baslik.Size =
 		UDim2.new(
 			1,
-			-100,
+			-105,
 			0,
 			19
 		)
 
-	title.Position =
+	Baslik.Position =
 		UDim2.fromOffset(
 			13,
 			7
 		)
 
-	title.BackgroundTransparency =
+	Baslik.BackgroundTransparency =
 		1
 
-	title.Text =
-		name
+	Baslik.Text =
+		ad
 
-	title.TextColor3 =
-		COLOR.TEXT
+	Baslik.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	title.Font =
+	Baslik.Font =
 		Enum.Font.GothamSemibold
 
-	title.TextSize =
+	Baslik.TextSize =
 		10
 
-	title.TextXAlignment =
+	Baslik.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	title.Parent =
-		button
+	Baslik.Parent =
+		Buton
 
-	local sub =
+	local Aciklama =
 		Instance.new(
 			"TextLabel"
 		)
 
-	sub.Size =
+	Aciklama.Size =
 		UDim2.new(
 			1,
-			-100,
+			-105,
 			0,
 			17
 		)
 
-	sub.Position =
+	Aciklama.Position =
 		UDim2.fromOffset(
 			13,
 			29
 		)
 
-	sub.BackgroundTransparency =
+	Aciklama.BackgroundTransparency =
 		1
 
-	sub.Text =
-		description
+	Aciklama.Text =
+		aciklama
 
-	sub.TextColor3 =
-		COLOR.SUB
+	Aciklama.TextColor3 =
+		Color3.fromRGB(
+			145,
+			151,
+			165
+		)
 
-	sub.Font =
+	Aciklama.Font =
 		Enum.Font.Gotham
 
-	sub.TextSize =
+	Aciklama.TextSize =
 		7
 
-	sub.TextXAlignment =
-		Enum.TextXAlignment.Left
-
-	sub.TextTruncate =
+	Aciklama.TextTruncate =
 		Enum.TextTruncate.AtEnd
 
-	sub.Parent =
-		button
+	Aciklama.TextXAlignment =
+		Enum.TextXAlignment.Left
 
-	local toggle =
+	Aciklama.Parent =
+		Buton
+
+	local Zemin =
 		Instance.new(
 			"Frame"
 		)
 
-	toggle.Size =
+	Zemin.Size =
 		UDim2.fromOffset(
 			42,
 			22
 		)
 
-	toggle.Position =
+	Zemin.Position =
 		UDim2.new(
 			1,
 			-56,
@@ -2723,448 +2663,679 @@ local function CreateToggle(
 			-11
 		)
 
-	toggle.BackgroundColor3 =
+	Zemin.BackgroundColor3 =
 		Color3.fromRGB(
 			48,
 			51,
 			63
 		)
 
-	toggle.BorderSizePixel =
+	Zemin.BorderSizePixel =
 		0
 
-	toggle.Parent =
-		button
+	Zemin.Parent =
+		Buton
 
-	local toggleCorner =
+	local ZeminKose =
 		Instance.new(
 			"UICorner"
 		)
 
-	toggleCorner.CornerRadius =
+	ZeminKose.CornerRadius =
 		UDim.new(
 			1,
 			0
 		)
 
-	toggleCorner.Parent =
-		toggle
+	ZeminKose.Parent =
+		Zemin
 
-	local knob =
+	local Top =
 		Instance.new(
 			"Frame"
 		)
 
-	knob.Size =
+	Top.Size =
 		UDim2.fromOffset(
 			16,
 			16
 		)
 
-	knob.Position =
+	Top.Position =
 		UDim2.fromOffset(
 			3,
 			3
 		)
 
-	knob.BackgroundColor3 =
-		COLOR.TEXT
+	Top.BackgroundColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	knob.BorderSizePixel =
+	Top.BorderSizePixel =
 		0
 
-	knob.Parent =
-		toggle
+	Top.Parent =
+		Zemin
 
-	local knobCorner =
+	local TopKose =
 		Instance.new(
 			"UICorner"
 		)
 
-	knobCorner.CornerRadius =
+	TopKose.CornerRadius =
 		UDim.new(
 			1,
 			0
 		)
 
-	knobCorner.Parent =
-		knob
+	TopKose.Parent =
+		Top
 
-	local enabled =
-		initial == true
+	local aktif =
+		baslangic == true
 
-	local function Render()
+	local function Goster()
 
-		if enabled then
+		if aktif then
 
-			button.BackgroundColor3 =
-				COLOR.GREEN_DARK
-
-			toggle.BackgroundColor3 =
+			Buton.BackgroundColor3 =
 				Color3.fromRGB(
-					30,
-					100,
-					61
+					29,
+					65,
+					45
 				)
 
-			knob.Position =
+			Zemin.BackgroundColor3 =
+				Color3.fromRGB(
+					31,
+					100,
+					62
+				)
+
+			Top.Position =
 				UDim2.fromOffset(
 					23,
 					3
 				)
 
-			knob.BackgroundColor3 =
-				COLOR.GREEN
+			Top.BackgroundColor3 =
+				Color3.fromRGB(
+					61,
+					203,
+					113
+				)
 
 		else
 
-			button.BackgroundColor3 =
-				COLOR.CARD
+			Buton.BackgroundColor3 =
+				Color3.fromRGB(
+					27,
+					30,
+					40
+				)
 
-			toggle.BackgroundColor3 =
+			Zemin.BackgroundColor3 =
 				Color3.fromRGB(
 					48,
 					51,
 					63
 				)
 
-			knob.Position =
+			Top.Position =
 				UDim2.fromOffset(
 					3,
 					3
 				)
 
-			knob.BackgroundColor3 =
-				COLOR.TEXT
-
+			Top.BackgroundColor3 =
+				Color3.fromRGB(
+					245,
+					247,
+					250
+				)
 		end
 	end
 
-	local function Set(value)
+	local function Ayarla(
+		deger
+	)
 
-		enabled =
-			value == true
+		aktif =
+			deger == true
 
-		Render()
+		Goster()
 
-		if callback then
-			callback(enabled)
+		if geriCagirma then
+			geriCagirma(
+				aktif
+			)
 		end
 	end
 
-	button.MouseEnter:Connect(
+	Buton.MouseEnter:Connect(
 		function()
 
-			if not enabled then
+			if not aktif then
 
-				TweenService:Create(
-					button,
+				Tween:Create(
+					Buton,
 					TweenInfo.new(
 						0.12
 					),
 					{
 						BackgroundColor3 =
-							COLOR.CARD_HOVER
+							Color3.fromRGB(
+								34,
+								38,
+								50
+							)
 					}
 				):Play()
 			end
 		end
 	)
 
-	button.MouseLeave:Connect(
+	Buton.MouseLeave:Connect(
 		function()
 
-			if not enabled then
-				button.BackgroundColor3 =
-					COLOR.CARD
+			if not aktif then
+
+				Buton.BackgroundColor3 =
+					Color3.fromRGB(
+						27,
+						30,
+						40
+					)
 			end
 		end
 	)
 
-	button.MouseButton1Click:Connect(
+	Buton.MouseButton1Click:Connect(
 		function()
 
-			Set(
-				not enabled
+			Ayarla(
+				not aktif
 			)
 		end
 	)
 
-	Render()
+	Goster()
 
-	return button,
-		Set
+	return Buton,
+		Ayarla
 end
 
 --============================================================
--- NUMBER INPUT
+-- SAYI AYARI
 --============================================================
 
-local function CreateNumberSetting(
-	parent,
-	name,
-	description,
-	initial,
+local function SayiAyari(
+	ebeveyn,
+	ad,
+	aciklama,
+	baslangic,
 	minimum,
-	maximum,
-	step,
-	callback
+	maksimum,
+	artis,
+	geriCagirma
 )
 
-	local card =
+	local Kart =
 		Instance.new(
 			"Frame"
 		)
 
-	card.Size =
+	Kart.Size =
 		UDim2.new(
 			1,
 			0,
 			0,
-			56
+			62
 		)
 
-	card.BackgroundColor3 =
-		COLOR.CARD
+	Kart.BackgroundColor3 =
+		Color3.fromRGB(
+			27,
+			30,
+			40
+		)
 
-	card.BorderSizePixel =
+	Kart.BorderSizePixel =
 		0
 
-	card.Parent =
-		parent
+	Kart.Parent =
+		ebeveyn
 
-	local corner =
+	local Kose =
 		Instance.new(
 			"UICorner"
 		)
 
-	corner.CornerRadius =
+	Kose.CornerRadius =
 		UDim.new(
 			0,
 			11
 		)
 
-	corner.Parent =
-		card
+	Kose.Parent =
+		Kart
 
-	local title =
+	local Baslik =
 		Instance.new(
 			"TextLabel"
 		)
 
-	title.Size =
+	Baslik.Size =
 		UDim2.new(
 			1,
-			-120,
+			-155,
 			0,
 			19
 		)
 
-	title.Position =
+	Baslik.Position =
 		UDim2.fromOffset(
 			13,
-			7
+			6
 		)
 
-	title.BackgroundTransparency =
+	Baslik.BackgroundTransparency =
 		1
 
-	title.Text =
-		name
+	Baslik.Text =
+		ad
 
-	title.TextColor3 =
-		COLOR.TEXT
+	Baslik.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	title.Font =
+	Baslik.Font =
 		Enum.Font.GothamSemibold
 
-	title.TextSize =
+	Baslik.TextSize =
 		10
 
-	title.TextXAlignment =
+	Baslik.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	title.Parent =
-		card
+	Baslik.Parent =
+		Kart
 
-	local sub =
+	local Aciklama =
 		Instance.new(
 			"TextLabel"
 		)
 
-	sub.Size =
+	Aciklama.Size =
 		UDim2.new(
 			1,
-			-120,
+			-155,
 			0,
 			17
 		)
 
-	sub.Position =
+	Aciklama.Position =
 		UDim2.fromOffset(
 			13,
-			29
+			28
 		)
 
-	sub.BackgroundTransparency =
+	Aciklama.BackgroundTransparency =
 		1
 
-	sub.Text =
-		description
+	Aciklama.Text =
+		aciklama
 
-	sub.TextColor3 =
-		COLOR.SUB
+	Aciklama.TextColor3 =
+		Color3.fromRGB(
+			145,
+			151,
+			165
+		)
 
-	sub.Font =
+	Aciklama.Font =
 		Enum.Font.Gotham
 
-	sub.TextSize =
+	Aciklama.TextSize =
 		7
 
-	sub.TextTruncate =
+	Aciklama.TextTruncate =
 		Enum.TextTruncate.AtEnd
 
-	sub.TextXAlignment =
+	Aciklama.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	sub.Parent =
-		card
+	Aciklama.Parent =
+		Kart
 
-	local box =
-		Instance.new(
-			"TextBox"
-		)
+	--========================================================
+	-- AZALT
+	--========================================================
 
-	box.Size =
-		UDim2.fromOffset(
-			88,
-			34
-		)
-
-	box.Position =
-		UDim2.new(
-			1,
-			-100,
-			0.5,
-			-17
-		)
-
-	box.BackgroundColor3 =
-		Color3.fromRGB(
-			19,
-			21,
-			29
-		)
-
-	box.BorderSizePixel =
-		0
-
-	box.ClearTextOnFocus =
-		false
-
-	box.Text =
-		tostring(initial)
-
-	box.TextColor3 =
-		COLOR.TEXT
-
-	box.Font =
-		Enum.Font.GothamBold
-
-	box.TextSize =
-		9
-
-	box.Parent =
-		card
-
-	local boxCorner =
-		Instance.new(
-			"UICorner"
-		)
-
-	boxCorner.CornerRadius =
-		UDim.new(
-			0,
-			9
-		)
-
-	boxCorner.Parent =
-		box
-
-	local value =
-		initial
-
-	local function Apply(raw)
-
-		local number =
-			tonumber(raw)
-
-		if not number then
-
-			box.Text =
-				tostring(value)
-
-			return
-		end
-
-		number =
-			math.clamp(
-				number,
-				minimum,
-				maximum
-			)
-
-		if step
-			and step > 0 then
-
-			number =
-				math.round(
-					number / step
-				) * step
-		end
-
-		value =
-			number
-
-		box.Text =
-			tostring(number)
-
-		if callback then
-			callback(number)
-		end
-	end
-
-	box.FocusLost:Connect(
-		function()
-
-			Apply(
-				box.Text
-			)
-		end
-	)
-
-	return box, Apply
-end
-
---============================================================
--- CYCLE SETTING
---============================================================
-
-local function CreateCycle(
-	parent,
-	name,
-	description,
-	options,
-	initialIndex,
-	callback
-)
-
-	local card =
+	local Azalt =
 		Instance.new(
 			"TextButton"
 		)
 
-	card.Size =
+	Azalt.Size =
+		UDim2.fromOffset(
+			27,
+			32
+		)
+
+	Azalt.Position =
+		UDim2.new(
+			1,
+			-129,
+			0.5,
+			-16
+		)
+
+	Azalt.BackgroundColor3 =
+		Color3.fromRGB(
+			41,
+			45,
+			57
+		)
+
+	Azalt.BorderSizePixel =
+		0
+
+	Azalt.Text =
+		"-"
+
+	Azalt.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
+
+	Azalt.Font =
+		Enum.Font.GothamBold
+
+	Azalt.TextSize =
+		12
+
+	Azalt.AutoButtonColor =
+		false
+
+	Azalt.Parent =
+		Kart
+
+	local AzaltKose =
+		Instance.new(
+			"UICorner"
+		)
+
+	AzaltKose.CornerRadius =
+		UDim.new(
+			0,
+			8
+		)
+
+	AzaltKose.Parent =
+		Azalt
+
+	--========================================================
+	-- DEGER
+	--========================================================
+
+	local Kutu =
+		Instance.new(
+			"TextBox"
+		)
+
+	Kutu.Size =
+		UDim2.fromOffset(
+			69,
+			32
+		)
+
+	Kutu.Position =
+		UDim2.new(
+			1,
+			-99,
+			0.5,
+			-16
+		)
+
+	Kutu.BackgroundColor3 =
+		Color3.fromRGB(
+			19,
+			21,
+			29
+		)
+
+	Kutu.BorderSizePixel =
+		0
+
+	Kutu.ClearTextOnFocus =
+		false
+
+	Kutu.Text =
+		tostring(
+			baslangic
+		)
+
+	Kutu.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
+
+	Kutu.Font =
+		Enum.Font.GothamBold
+
+	Kutu.TextSize =
+		8
+
+	Kutu.TextXAlignment =
+		Enum.TextXAlignment.Center
+
+	Kutu.Parent =
+		Kart
+
+	local KutuKose =
+		Instance.new(
+			"UICorner"
+		)
+
+	KutuKose.CornerRadius =
+		UDim.new(
+			0,
+			8
+		)
+
+	KutuKose.Parent =
+		Kutu
+
+	--========================================================
+	-- ARTIR
+	--========================================================
+
+	local Artir =
+		Instance.new(
+			"TextButton"
+		)
+
+	Artir.Size =
+		UDim2.fromOffset(
+			27,
+			32
+		)
+
+	Artir.Position =
+		UDim2.new(
+			1,
+			-27,
+			0.5,
+			-16
+		)
+
+	Artir.BackgroundColor3 =
+		Color3.fromRGB(
+			41,
+			45,
+			57
+		)
+
+	Artir.BorderSizePixel =
+		0
+
+	Artir.Text =
+		"+"
+
+	Artir.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
+
+	Artir.Font =
+		Enum.Font.GothamBold
+
+	Artir.TextSize =
+		12
+
+	Artir.AutoButtonColor =
+		false
+
+	Artir.Parent =
+		Kart
+
+	local ArtirKose =
+		Instance.new(
+			"UICorner"
+		)
+
+	ArtirKose.CornerRadius =
+		UDim.new(
+			0,
+			8
+		)
+
+	ArtirKose.Parent =
+		Artir
+
+	local deger =
+		baslangic
+
+	local function Uygula(
+		yeni
+	)
+
+		local sayi =
+			tonumber(yeni)
+
+		if not sayi then
+
+			Kutu.Text =
+				tostring(
+					deger
+				)
+
+			return
+		end
+
+		sayi =
+			math.clamp(
+				sayi,
+				minimum,
+				maksimum
+			)
+
+		if artis > 0 then
+
+			sayi =
+				math.round(
+					sayi / artis
+				) *
+				artis
+		end
+
+		if minimum < 1
+			and artis < 1 then
+
+			sayi =
+				math.round(
+					sayi * 100
+				) / 100
+		end
+
+		deger =
+			sayi
+
+		Kutu.Text =
+			tostring(
+				sayi
+			)
+
+		if geriCagirma then
+			geriCagirma(
+				sayi
+			)
+		end
+	end
+
+	Kutu.FocusLost:Connect(
+		function()
+
+			Uygula(
+				Kutu.Text
+			)
+		end
+	)
+
+	Azalt.MouseButton1Click:Connect(
+		function()
+
+			Uygula(
+				deger - artis
+			)
+		end
+	)
+
+	Artir.MouseButton1Click:Connect(
+		function()
+
+			Uygula(
+				deger + artis
+			)
+		end
+	)
+
+	return Kutu,
+		Uygula
+end
+
+--============================================================
+-- SECIM AYARI
+--============================================================
+
+local function DonguAyari(
+	ebeveyn,
+	ad,
+	aciklama,
+	secenekler,
+	baslangic,
+	geriCagirma
+)
+
+	local Buton =
+		Instance.new(
+			"TextButton"
+		)
+
+	Buton.Size =
 		UDim2.new(
 			1,
 			0,
@@ -3172,1380 +3343,2608 @@ local function CreateCycle(
 			56
 		)
 
-	card.BackgroundColor3 =
-		COLOR.CARD
+	Buton.BackgroundColor3 =
+		Color3.fromRGB(
+			27,
+			30,
+			40
+		)
 
-	card.BorderSizePixel =
+	Buton.BorderSizePixel =
 		0
 
-	card.AutoButtonColor =
+	Buton.AutoButtonColor =
 		false
 
-	card.Text =
+	Buton.Text =
 		""
 
-	card.Parent =
-		parent
+	Buton.Parent =
+		ebeveyn
 
-	local corner =
+	local Kose =
 		Instance.new(
 			"UICorner"
 		)
 
-	corner.CornerRadius =
+	Kose.CornerRadius =
 		UDim.new(
 			0,
 			11
 		)
 
-	corner.Parent =
-		card
+	Kose.Parent =
+		Buton
 
-	local title =
+	local Baslik =
 		Instance.new(
 			"TextLabel"
 		)
 
-	title.Size =
+	Baslik.Size =
 		UDim2.new(
 			1,
-			-140,
+			-135,
 			0,
 			19
 		)
 
-	title.Position =
+	Baslik.Position =
 		UDim2.fromOffset(
 			13,
 			7
 		)
 
-	title.BackgroundTransparency =
+	Baslik.BackgroundTransparency =
 		1
 
-	title.Text =
-		name
+	Baslik.Text =
+		ad
 
-	title.TextColor3 =
-		COLOR.TEXT
+	Baslik.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	title.Font =
+	Baslik.Font =
 		Enum.Font.GothamSemibold
 
-	title.TextSize =
+	Baslik.TextSize =
 		10
 
-	title.TextXAlignment =
+	Baslik.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	title.Parent =
-		card
+	Baslik.Parent =
+		Buton
 
-	local sub =
+	local Aciklama =
 		Instance.new(
 			"TextLabel"
 		)
 
-	sub.Size =
+	Aciklama.Size =
 		UDim2.new(
 			1,
-			-140,
+			-135,
 			0,
 			17
 		)
 
-	sub.Position =
+	Aciklama.Position =
 		UDim2.fromOffset(
 			13,
 			29
 		)
 
-	sub.BackgroundTransparency =
+	Aciklama.BackgroundTransparency =
 		1
 
-	sub.Text =
-		description
+	Aciklama.Text =
+		aciklama
 
-	sub.TextColor3 =
-		COLOR.SUB
+	Aciklama.TextColor3 =
+		Color3.fromRGB(
+			145,
+			151,
+			165
+		)
 
-	sub.Font =
+	Aciklama.Font =
 		Enum.Font.Gotham
 
-	sub.TextSize =
+	Aciklama.TextSize =
 		7
 
-	sub.TextXAlignment =
+	Aciklama.TextTruncate =
+		Enum.TextTruncate.AtEnd
+
+	Aciklama.TextXAlignment =
 		Enum.TextXAlignment.Left
 
-	sub.Parent =
-		card
+	Aciklama.Parent =
+		Buton
 
-	local valueLabel =
+	local Deger =
 		Instance.new(
 			"TextLabel"
 		)
 
-	valueLabel.Size =
+	Deger.Size =
 		UDim2.fromOffset(
-			105,
+			102,
 			32
 		)
 
-	valueLabel.Position =
+	Deger.Position =
 		UDim2.new(
 			1,
-			-118,
+			-113,
 			0.5,
 			-16
 		)
 
-	valueLabel.BackgroundColor3 =
+	Deger.BackgroundColor3 =
 		Color3.fromRGB(
 			19,
 			21,
 			29
 		)
 
-	valueLabel.BorderSizePixel =
+	Deger.BorderSizePixel =
 		0
 
-	valueLabel.TextColor3 =
-		COLOR.TEXT
+	Deger.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	valueLabel.Font =
+	Deger.Font =
 		Enum.Font.GothamBold
 
-	valueLabel.TextSize =
+	Deger.TextSize =
 		8
 
-	valueLabel.TextXAlignment =
-		Enum.TextXAlignment.Center
+	Deger.Parent =
+		Buton
 
-	valueLabel.Parent =
-		card
-
-	local valueCorner =
+	local DegerKose =
 		Instance.new(
 			"UICorner"
 		)
 
-	valueCorner.CornerRadius =
+	DegerKose.CornerRadius =
 		UDim.new(
 			0,
-			9
+			8
 		)
 
-	valueCorner.Parent =
-		valueLabel
+	DegerKose.Parent =
+		Deger
 
-	local index =
+	local indeks =
 		math.clamp(
-			initialIndex or 1,
+			baslangic,
 			1,
-			#options
+			#secenekler
 		)
 
-	local function Render()
+	local function Goster()
 
-		valueLabel.Text =
+		Deger.Text =
 			tostring(
-				options[index]
+				secenekler[indeks]
 			)
-
 	end
 
-	card.MouseButton1Click:Connect(
+	Buton.MouseButton1Click:Connect(
 		function()
 
-			index += 1
+			indeks += 1
 
-			if index > #options then
-				index = 1
+			if indeks >
+				#secenekler then
+
+				indeks = 1
 			end
 
-			Render()
+			Goster()
 
-			if callback then
-				callback(
-					options[index],
-					index
+			if geriCagirma then
+
+				geriCagirma(
+					secenekler[indeks],
+					indeks
 				)
 			end
 		end
 	)
 
-	Render()
+	Goster()
 
-	return card
+	return Buton
 end
 
 --============================================================
--- ACTION BUTTON
+-- AKSIYON BUTONU
 --============================================================
 
-local function CreateAction(
-	parent,
-	name,
-	callback
+local function Aksiyon(
+	ebeveyn,
+	yazi,
+	geriCagirma
 )
 
-	local button =
+	local Buton =
 		Instance.new(
 			"TextButton"
 		)
 
-	button.Size =
+	Buton.Size =
 		UDim2.new(
 			1,
 			0,
 			0,
-			46
+			44
 		)
 
-	button.BackgroundColor3 =
-		COLOR.CARD
+	Buton.BackgroundColor3 =
+		Color3.fromRGB(
+			27,
+			30,
+			40
+		)
 
-	button.BorderSizePixel =
+	Buton.BorderSizePixel =
 		0
 
-	button.AutoButtonColor =
+	Buton.AutoButtonColor =
 		false
 
-	button.Text =
-		name
+	Buton.Text =
+		yazi
 
-	button.TextColor3 =
-		COLOR.TEXT
+	Buton.TextColor3 =
+		Color3.fromRGB(
+			245,
+			247,
+			250
+		)
 
-	button.Font =
+	Buton.Font =
 		Enum.Font.GothamBold
 
-	button.TextSize =
-		9
+	Buton.TextSize =
+		8
 
-	button.Parent =
-		parent
+	Buton.Parent =
+		ebeveyn
 
-	local corner =
+	local Kose =
 		Instance.new(
 			"UICorner"
 		)
 
-	corner.CornerRadius =
+	Kose.CornerRadius =
 		UDim.new(
 			0,
-			11
+			10
 		)
 
-	corner.Parent =
-		button
+	Kose.Parent =
+		Buton
 
-	button.MouseEnter:Connect(
+	Buton.MouseEnter:Connect(
 		function()
 
-			button.BackgroundColor3 =
-				COLOR.CARD_HOVER
+			Buton.BackgroundColor3 =
+				Color3.fromRGB(
+					34,
+					38,
+					50
+				)
 		end
 	)
 
-	button.MouseLeave:Connect(
+	Buton.MouseLeave:Connect(
 		function()
 
-			button.BackgroundColor3 =
-				COLOR.CARD
+			Buton.BackgroundColor3 =
+				Color3.fromRGB(
+					27,
+					30,
+					40
+				)
 		end
 	)
 
-	button.MouseButton1Click:Connect(
+	Buton.MouseButton1Click:Connect(
 		function()
 
-			if callback then
-				callback()
+			if geriCagirma then
+				geriCagirma()
 			end
 		end
 	)
 
-	return button
+	return Buton
 end
 
 --============================================================
--- COMBAT PAGE
+-- SAVAS SAYFASI
 --============================================================
 
-CreateSection(
-	CombatPage,
+Bolum(
+	SavasSayfasi,
 	"AIM"
 )
 
-local AimToggle,
-	SetAimToggle =
-		CreateToggle(
-			CombatPage,
-			"Nearest Player Aim",
-			"En yakın canlı oyuncuya otomatik yönelir.",
-			false,
-			function(enabled)
+local AimButon =
+	AcKapat(
+		SavasSayfasi,
+		"En Yakin Oyuncu Aim",
+		"En yakin uygun canli oyuncuya bakar.",
+		false,
+		function(aktif)
 
-				State.AimLock =
-					enabled
+			Durum.Aim =
+				aktif
 
-				ClearAim()
+			AimTemizle()
 
-				AimScanTimer = 0
+			AimTaramaSayaci =
+				0
 
-				UpdateFOVCircle()
+			FovGuncelle()
 
-				if enabled then
+			if aktif then
 
-					SetStatus(
-						"Nearest Player Aim aktif.\n" ..
-						"Hedef aranıyor..."
-					)
+				DurumGuncelle(
+					"Aim aktif • En yakin oyuncu araniyor.",
+					1.5
+				)
 
-				else
+			else
 
-					SetStatus(
-						"AimLock kapalı."
-					)
-				end
+				DurumGuncelle(
+					"Aim kapali.",
+					1.5
+				)
 			end
-		)
+		end
+	)
 
-CreateSection(
-	CombatPage,
-	"AIM OPTIONS"
-)
+AimAyarlaUI =
+	AimButon
 
-CreateNumberSetting(
-	CombatPage,
-	"Aim Distance",
-	"Maximum hedef mesafesi.",
-	CONFIG.AIM_DISTANCE,
+SayiAyari(
+	SavasSayfasi,
+	"Aim Mesafesi",
+	"En fazla hedef uzakligi.",
+	AYAR.AIM_MESAFE,
 	1,
 	100000,
-	1,
-	function(value)
+	10,
+	function(deger)
 
-		CONFIG.AIM_DISTANCE =
-			value
+		AYAR.AIM_MESAFE =
+			deger
 
-		ClearAim()
+		AimTemizle()
 	end
 )
 
-CreateNumberSetting(
-	CombatPage,
-	"Aim Smooth",
-	"0.01 yavaş / 1 anında.",
-	CONFIG.AIM_SMOOTH,
+SayiAyari(
+	SavasSayfasi,
+	"Aim Yumusakligi",
+	"0.01 yavas / 1 dogrudan.",
+	AYAR.AIM_YUMUSAKLIK,
 	0.01,
 	1,
 	0.01,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_SMOOTH =
-			value
+		AYAR.AIM_YUMUSAKLIK =
+			deger
 	end
 )
 
-CreateNumberSetting(
-	CombatPage,
-	"Aim Switch",
-	"Hedef yenileme süresi.",
-	CONFIG.AIM_SWITCH,
+SayiAyari(
+	SavasSayfasi,
+	"Hedef Degisim",
+	"Hedef yenileme suresi.",
+	AYAR.AIM_DEGISIM,
 	0.03,
 	5,
 	0.01,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_SWITCH =
-			value
+		AYAR.AIM_DEGISIM =
+			deger
 	end
 )
 
-CreateNumberSetting(
-	CombatPage,
-	"Aim Height",
-	"Hedefe eklenecek Y offset.",
-	CONFIG.AIM_HEIGHT,
+SayiAyari(
+	SavasSayfasi,
+	"Aim Yuksekligi",
+	"0 = dogrudan hedef parcasi.",
+	AYAR.AIM_YUKSEKLIK,
 	-20,
 	20,
 	0.1,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_HEIGHT =
-			value
+		AYAR.AIM_YUKSEKLIK =
+			deger
 	end
 )
 
-CreateNumberSetting(
-	CombatPage,
-	"Prediction",
-	"Hedef hareket tahmini.",
-	CONFIG.AIM_PREDICTION,
+SayiAyari(
+	SavasSayfasi,
+	"Hedef Tahmini",
+	"Hareketli hedef tahmini. 0 = kapali.",
+	AYAR.AIM_TAHMIN,
 	0,
 	2,
 	0.01,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_PREDICTION =
-			value
+		AYAR.AIM_TAHMIN =
+			deger
 	end
 )
 
-CreateNumberSetting(
-	CombatPage,
+SayiAyari(
+	SavasSayfasi,
 	"Aim FOV",
-	"Ekran merkezi pixel yarıçapı. 0 = kapalı.",
-	CONFIG.AIM_FOV,
+	"0 = sinirsiz. Pixel yaricapi.",
+	AYAR.AIM_FOV,
 	0,
 	2000,
-	1,
-	function(value)
+	10,
+	function(deger)
 
-		CONFIG.AIM_FOV =
-			value
+		AYAR.AIM_FOV =
+			deger
 
-		UpdateFOVCircle()
+		FovGuncelle()
 	end
 )
 
-CreateCycle(
-	CombatPage,
-	"Aim Part",
-	"Hedeflenecek karakter parçası.",
+DonguAyari(
+	SavasSayfasi,
+	"Hedef Parcasi",
+	"Bakilacak karakter parcasi.",
 	{
 		"Head",
 		"HumanoidRootPart",
 		"UpperTorso",
 	},
 	1,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_PART =
-			value
+		AYAR.AIM_PARCA =
+			deger
 
-		ClearAim()
+		AimTemizle()
 	end
 )
 
-CreateCycle(
-	CombatPage,
-	"Aim Mode",
-	"Hedef seçim yöntemi.",
+DonguAyari(
+	SavasSayfasi,
+	"Hedef Modu",
+	"En yakin veya ekran merkezine en yakin.",
 	{
-		"Nearest",
-		"Screen",
+		"En Yakin",
+		"Ekran Merkezi",
 	},
 	1,
-	function(value)
+	function(deger)
 
-		CONFIG.AIM_MODE =
-			value
+		AYAR.AIM_MODU =
+			deger
 
-		ClearAim()
+		AimTemizle()
 	end
 )
 
-CreateToggle(
-	CombatPage,
-	"Team Check",
-	"Aynı takımdaki oyuncuları hedefleme.",
-	CONFIG.TEAM_CHECK,
-	function(enabled)
+local TakimAimButon =
+	AcKapat(
+		SavasSayfasi,
+		"Takim Kontrolu",
+		"Ayni takimdaki oyunculari hedefleme.",
+		AYAR.TAKIM_KONTROLU,
+		function(aktif)
 
-		CONFIG.TEAM_CHECK =
-			enabled
+			AYAR.TAKIM_KONTROLU =
+				aktif
 
-		ClearAim()
-	end
+			AimTemizle()
+		end
+	)
+
+local GorusAimButon =
+	AcKapat(
+		SavasSayfasi,
+		"Gorus Kontrolu",
+		"Duvar arkasindaki hedefleri ele.",
+		AYAR.GORUS_KONTROLU,
+		function(aktif)
+
+			AYAR.GORUS_KONTROLU =
+				aktif
+
+			AimTemizle()
+		end
+	)
+
+Bolum(
+	SavasSayfasi,
+	"FOV GORSEL"
 )
 
-CreateToggle(
-	CombatPage,
-	"Line Of Sight",
-	"Duvar arkasındaki oyuncuları ele.",
-	CONFIG.LOS_CHECK,
-	function(enabled)
+AcKapat(
+	SavasSayfasi,
+	"FOV Cemberi",
+	"Aim alanini ekranda goster.",
+	AYAR.FOV_GOSTER,
+	function(aktif)
 
-		CONFIG.LOS_CHECK =
-			enabled
+		AYAR.FOV_GOSTER =
+			aktif
 
-		ClearAim()
-	end
-)
-
-CreateSection(
-	CombatPage,
-	"FOV DISPLAY"
-)
-
-CreateToggle(
-	CombatPage,
-	"FOV Circle",
-	"Aim FOV alanını ekranda göster.",
-	CONFIG.FOV_ENABLED,
-	function(enabled)
-
-		CONFIG.FOV_ENABLED =
-			enabled
-
-		UpdateFOVCircle()
+		FovGuncelle()
 	end
 )
 
 --============================================================
--- MOVEMENT PAGE
+-- HAREKET SAYFASI
 --============================================================
 
-CreateSection(
-	MovementPage,
-	"MOVEMENT"
+Bolum(
+	HareketSayfasi,
+	"HAREKET"
 )
 
-local SpeedToggle,
-	SetSpeedToggle =
-		CreateToggle(
-			MovementPage,
-			"Speed",
-			"Yerel WalkSpeed değeri.",
-			false,
-			function(enabled)
+AcKapat(
+	HareketSayfasi,
+	"Hiz",
+	"Yurume hizini etkinlestir.",
+	false,
+	function(aktif)
 
-				State.Speed =
-					enabled
+		Durum.Hiz =
+			aktif
 
-				if Humanoid then
+		if Humanoid then
 
-					if enabled then
+			if aktif then
 
-						Humanoid.WalkSpeed =
-							CONFIG.SPEED
+				Humanoid.WalkSpeed =
+					AYAR.HIZ
 
-					else
+			else
 
-						Humanoid.WalkSpeed =
-							OriginalWalkSpeed
-					end
-				end
+				Humanoid.WalkSpeed =
+					OrijinalHiz
 			end
-		)
+		end
 
-CreateNumberSetting(
-	MovementPage,
-	"Speed Value",
-	"Speed değerini değiştir.",
-	CONFIG.SPEED,
+		DurumGuncelle(
+			"Hiz: " ..
+			(
+				aktif
+				and "AKTIF"
+				or "KAPALI"
+			),
+			1
+		)
+	end
+)
+
+SayiAyari(
+	HareketSayfasi,
+	"Hiz Degeri",
+	"Yurume hizini ayarla.",
+	AYAR.HIZ,
 	0,
 	100000,
-	1,
-	function(value)
+	5,
+	function(deger)
 
-		CONFIG.SPEED =
-			value
+		AYAR.HIZ =
+			deger
 
-		if State.Speed
+		if Durum.Hiz
 			and Humanoid then
 
 			Humanoid.WalkSpeed =
-				value
+				deger
 		end
 	end
 )
 
-local JumpToggle,
-	SetJumpToggle =
-		CreateToggle(
-			MovementPage,
-			"Jump",
-			"JumpPower / JumpHeight değerini değiştirir.",
-			false,
-			function(enabled)
+AcKapat(
+	HareketSayfasi,
+	"Yuksek Zipla",
+	"JumpPower veya JumpHeight.",
+	false,
+	function(aktif)
 
-				State.Jump =
-					enabled
+		Durum.Ziplama =
+			aktif
 
-				if not Humanoid then
-					return
-				end
+		if not Humanoid then
+			return
+		end
 
-				if enabled then
+		if aktif then
 
-					if Humanoid.UseJumpPower then
+			if Humanoid.UseJumpPower then
 
-						Humanoid.JumpPower =
-							CONFIG.JUMP
+				Humanoid.JumpPower =
+					AYAR.ZIPLAMA
 
-					else
+			else
 
-						Humanoid.JumpHeight =
-							CONFIG.JUMP
-					end
-
-				else
-
-					Humanoid.UseJumpPower =
-						OriginalUseJumpPower
-
-					Humanoid.JumpPower =
-						OriginalJumpPower
-
-					Humanoid.JumpHeight =
-						OriginalJumpHeight
-				end
+				Humanoid.JumpHeight =
+					AYAR.ZIPLAMA
 			end
-		)
 
-CreateNumberSetting(
-	MovementPage,
-	"Jump Value",
-	"JumpPower veya JumpHeight değeri.",
-	CONFIG.JUMP,
+		else
+
+			Humanoid.UseJumpPower =
+				OrijinalJumpPowerKullan
+
+			Humanoid.JumpPower =
+				OrijinalJumpPower
+
+			Humanoid.JumpHeight =
+				OrijinalJumpHeight
+		end
+	end
+)
+
+SayiAyari(
+	HareketSayfasi,
+	"Zipla Degeri",
+	"JumpPower / JumpHeight.",
+	AYAR.ZIPLAMA,
 	0,
 	1000,
-	1,
-	function(value)
+	5,
+	function(deger)
 
-		CONFIG.JUMP =
-			value
+		AYAR.ZIPLAMA =
+			deger
 
-		if State.Jump
+		if Durum.Ziplama
 			and Humanoid then
 
 			if Humanoid.UseJumpPower then
 
 				Humanoid.JumpPower =
-					value
+					deger
 
 			else
 
 				Humanoid.JumpHeight =
-					value
+					deger
 			end
 		end
 	end
 )
 
-CreateToggle(
-	MovementPage,
+AcKapat(
+	HareketSayfasi,
 	"Noclip",
-	"Karakter parçalarının çarpışmasını kapatır.",
+	"Karakter carpismalarini kapatir.",
 	false,
-	function(enabled)
+	function(aktif)
 
-		State.Noclip =
-			enabled
+		Durum.Noclip =
+			aktif
 
-		if not enabled then
+		if not aktif then
 
-			for part, value in pairs(
-				CollisionMemory
-			) do
+			for parca,
+				eskiDeger in pairs(
+					Carpismalar
+				) do
 
-				if part
-					and part.Parent then
+				if parca
+					and parca.Parent then
 
-					part.CanCollide =
-						value
+					parca.CanCollide =
+						eskiDeger
 				end
 			end
 
 			table.clear(
-				CollisionMemory
+				Carpismalar
 			)
 		end
 	end
 )
 
-local FlyToggle,
-	SetFlyToggle =
-		CreateToggle(
-			MovementPage,
-			"Fly",
-			"WASD + Space + Shift.",
-			false,
-			function(enabled)
+AcKapat(
+	HareketSayfasi,
+	"Fly",
+	"WASD + Space + Shift.",
+	false,
+	function(aktif)
 
-				State.Fly =
-					enabled
+		Durum.Fly =
+			aktif
 
-				if enabled then
+		if aktif then
 
-					if StartFly() then
+			if FlyBaslat() then
 
-						SetStatus(
-							"Fly aktif.\n" ..
-							"WASD / Space / Shift"
-						)
+				DurumGuncelle(
+					"Fly aktif • W A S D + Space + Shift",
+					2
+				)
 
-					else
+			else
 
-						State.Fly =
-							false
+				Durum.Fly =
+					false
 
-						SetFlyToggle(
-							false
-						)
-
-						SetStatus(
-							"Fly: karakter hazır değil."
-						)
-					end
-
-				else
-
-					StopFly()
-
-					SetStatus(
-						"Fly kapalı."
-					)
-				end
+				DurumGuncelle(
+					"Fly • Karakter hazir degil.",
+					2
+				)
 			end
-		)
 
-CreateNumberSetting(
-	MovementPage,
-	"Fly Speed",
-	"Fly hızını değiştir.",
-	CONFIG.FLY_SPEED,
+		else
+
+			FlyDurdur()
+
+			DurumGuncelle(
+				"Fly kapali.",
+				1
+			)
+		end
+	end
+)
+
+SayiAyari(
+	HareketSayfasi,
+	"Fly Hizi",
+	"Ucus hizini ayarla.",
+	AYAR.UCUS_HIZI,
 	1,
 	10000,
-	1,
-	function(value)
+	5,
+	function(deger)
 
-		CONFIG.FLY_SPEED =
-			value
+		AYAR.UCUS_HIZI =
+			deger
 	end
 )
 
-CreateToggle(
-	MovementPage,
-	"Infinite Jump",
-	"Havadayken tekrar zıplamayı sağlar.",
+AcKapat(
+	HareketSayfasi,
+	"Sonsuz Ziplama",
+	"Havadayken tekrar ziplarsin.",
 	false,
-	function(enabled)
+	function(aktif)
 
-		State.InfiniteJump =
-			enabled
+		Durum.SonsuzZiplama =
+			aktif
 	end
 )
 
-CreateSection(
-	MovementPage,
-	"PLAYER"
+Bolum(
+	HareketSayfasi,
+	"OYUNCU"
 )
 
-local GodToggle,
-	SetGodToggle =
-		CreateToggle(
-			MovementPage,
-			"God Mode",
-			"Yerel sağlık yenileme sistemi.",
-			false,
-			function(enabled)
+AcKapat(
+	HareketSayfasi,
+	"God Mode",
+	"Yerel can yenileme.",
+	false,
+	function(aktif)
 
-				State.God =
-					enabled
+		Durum.God =
+			aktif
 
-				if enabled then
+		if aktif then
 
-					if not StartGod() then
+			if GodBaslat() then
 
-						State.God =
-							false
+				DurumGuncelle(
+					"God Mode aktif.",
+					2
+				)
 
-						SetGodToggle(
-							false
-						)
+			else
 
-						SetStatus(
-							"God Mode: karakter hazır değil."
-						)
+				Durum.God =
+					false
 
-					else
-
-						SetStatus(
-							"God Mode aktif."
-						)
-					end
-
-				else
-
-					StopGod()
-
-					SetStatus(
-						"God Mode kapalı."
-					)
-				end
+				DurumGuncelle(
+					"God Mode • Karakter hazir degil.",
+					2
+				)
 			end
-		)
 
-CreateAction(
-	MovementPage,
-	"RESPAWN",
+		else
+
+			GodDurdur()
+
+			DurumGuncelle(
+				"God Mode kapali.",
+				1
+			)
+		end
+	end
+)
+
+Aksiyon(
+	HareketSayfasi,
+	"YENIDEN DOG",
 	function()
 
 		if Humanoid then
-			Humanoid.Health = 0
-		else
-			RefreshCharacter()
 
-			if Humanoid then
-				Humanoid.Health = 0
-			end
+			Humanoid.Health =
+				0
 		end
 	end
 )
 
 --============================================================
--- VISUAL PAGE
+-- GORUNUS SAYFASI
 --============================================================
 
-CreateSection(
-	VisualPage,
+Bolum(
+	GorunusSayfasi,
 	"ESP"
 )
 
-local ESPToggle,
-	SetESPToggle =
-		CreateToggle(
-			VisualPage,
-			"ESP",
-			"Oyuncuları Highlight ile gösterir.",
-			false,
-			function(enabled)
+ESPOlusturUI =
+	AcKapat(
+		GorunusSayfasi,
+		"ESP",
+		"Oyunculari Highlight ile gosterir.",
+		false,
+		function(aktif)
 
-				State.ESP =
-					enabled
+			Durum.ESP =
+				aktif
 
-				RefreshESP()
+			ESPYenile()
 
-				if enabled then
+			DurumGuncelle(
+				aktif
+				and "ESP aktif."
+				or "ESP kapali.",
+				1
+			)
+		end
+	)
 
-					SetStatus(
-						"ESP aktif."
-					)
-
-				else
-
-					SetStatus(
-						"ESP kapalı."
-					)
-				end
-			end
-		)
-
-CreateNumberSetting(
-	VisualPage,
-	"ESP Distance",
-	"0 = sınırsız.",
-	CONFIG.ESP_DISTANCE,
+SayiAyari(
+	GorunusSayfasi,
+	"ESP Mesafesi",
+	"0 = sinirsiz.",
+	AYAR.ESP_MESAFE,
 	0,
 	100000,
-	1,
-	function(value)
+	10,
+	function(deger)
 
-		CONFIG.ESP_DISTANCE =
-			value
+		AYAR.ESP_MESAFE =
+			deger
 
-		if State.ESP then
-			RefreshESP()
+		if Durum.ESP then
+			ESPYenile()
 		end
 	end
 )
 
-CreateNumberSetting(
-	VisualPage,
-	"ESP Fill",
-	"0 = dolu / 1 = görünmez.",
-	CONFIG.ESP_FILL,
+SayiAyari(
+	GorunusSayfasi,
+	"ESP Dolgusu",
+	"0 = dolu / 1 = seffaf.",
+	AYAR.ESP_DOLGU,
 	0,
 	1,
-	0.01,
-	function(value)
+	0.05,
+	function(deger)
 
-		CONFIG.ESP_FILL =
-			value
+		AYAR.ESP_DOLGU =
+			deger
 
-		if State.ESP then
-			RefreshESP()
+		if Durum.ESP then
+			ESPYenile()
 		end
 	end
 )
 
-CreateToggle(
-	VisualPage,
-	"ESP Names",
-	"Oyuncu ismini göster.",
-	CONFIG.ESP_SHOW_NAMES,
-	function(enabled)
+AcKapat(
+	GorunusSayfasi,
+	"ESP Isimleri",
+	"Oyuncu isimlerini goster.",
+	AYAR.ESP_ISIM,
+	function(aktif)
 
-		CONFIG.ESP_SHOW_NAMES =
-			enabled
+		AYAR.ESP_ISIM =
+			aktif
 
-		if State.ESP then
-			RefreshESP()
+		if Durum.ESP then
+			ESPYenile()
 		end
 	end
 )
 
-CreateToggle(
-	VisualPage,
-	"ESP Health",
-	"İsim etiketinde HP göster.",
-	CONFIG.ESP_SHOW_HEALTH,
-	function(enabled)
+AcKapat(
+	GorunusSayfasi,
+	"ESP Can",
+	"Oyuncu can bilgisini goster.",
+	AYAR.ESP_CAN,
+	function(aktif)
 
-		CONFIG.ESP_SHOW_HEALTH =
-			enabled
+		AYAR.ESP_CAN =
+			aktif
 
-		if State.ESP then
-			RefreshESP()
+		if Durum.ESP then
+			ESPYenile()
 		end
 	end
 )
 
-CreateToggle(
-	VisualPage,
-	"ESP Through Walls",
-	"Duvar arkasında Highlight göster.",
-	CONFIG.ESP_THROUGH_WALLS,
-	function(enabled)
+AcKapat(
+	GorunusSayfasi,
+	"ESP Mesafe",
+	"Isim altinda mesafe goster.",
+	AYAR.ESP_MESAFE_YAZ,
+	function(aktif)
 
-		CONFIG.ESP_THROUGH_WALLS =
-			enabled
+		AYAR.ESP_MESAFE_YAZ =
+			aktif
+	end
+)
 
-		if State.ESP then
-			RefreshESP()
+AcKapat(
+	GorunusSayfasi,
+	"Duvar Arkasi ESP",
+	"Duvar arkasindan ESP goster.",
+	AYAR.ESP_DUVAR_ARKASI,
+	function(aktif)
+
+		AYAR.ESP_DUVAR_ARKASI =
+			aktif
+
+		if Durum.ESP then
+			ESPYenile()
 		end
 	end
 )
 
-CreateSection(
-	VisualPage,
+AcKapat(
+	GorunusSayfasi,
+	"ESP Takim Kontrolu",
+	"Ayni takim oyuncularini ESP'den cikar.",
+	AYAR.ESP_TAKIM_KONTROLU,
+	function(aktif)
+
+		AYAR.ESP_TAKIM_KONTROLU =
+			aktif
+
+		if Durum.ESP then
+			ESPYenile()
+		end
+	end
+)
+
+DonguAyari(
+	GorunusSayfasi,
+	"ESP Rengi",
+	"ESP rengini degistir.",
+	{
+		"Kirmizi",
+		"Mavi",
+		"Mor",
+		"Sari",
+		"Yesil",
+		"Beyaz",
+	},
+	1,
+	function(deger)
+
+		local renkler = {
+
+			Kirmizi =
+				Color3.fromRGB(
+					235,
+					75,
+					83
+				),
+
+			Mavi =
+				Color3.fromRGB(
+					70,
+					155,
+					255
+				),
+
+			Mor =
+				Color3.fromRGB(
+					175,
+					90,
+					255
+				),
+
+			Sari =
+				Color3.fromRGB(
+					245,
+					205,
+					65
+				),
+
+			Yesil =
+				Color3.fromRGB(
+					65,
+					210,
+					120
+				),
+
+			Beyaz =
+				Color3.fromRGB(
+					245,
+					247,
+					250
+				),
+		}
+
+		AYAR.ESP_RENK =
+			renkler[deger]
+
+		if Durum.ESP then
+			ESPYenile()
+		end
+	end
+)
+
+Bolum(
+	GorunusSayfasi,
 	"TELEPORT"
 )
 
-local TeleportToggle,
-	SetTeleportToggle =
-		CreateToggle(
-			VisualPage,
-			"Teleport To Mouse",
-			"ON yap, sonra dünyaya sol tıkla.",
-			false,
-			function(enabled)
+TeleportAyarlaUI =
+	AcKapat(
+		GorunusSayfasi,
+		"Mouse'a Işınlan",
+		"ON yap, sonra dunyaya sol tikla.",
+		false,
+		function(aktif)
 
-				State.Teleport =
-					enabled
+			Durum.Teleport =
+				aktif
 
-				if enabled then
+			DurumGuncelle(
+				aktif
+				and "Teleport aktif • Dunyada sol tikla."
+				or "Teleport kapali.",
+				2
+			)
+		end
+	)
 
-					SetStatus(
-						"Teleport aktif.\n" ..
-						"Dünyada sol tıkla."
-					)
-
-				else
-
-					SetStatus(
-						"Teleport kapalı."
-					)
-				end
-			end
-		)
-
-CreateNumberSetting(
-	VisualPage,
-	"Teleport Distance",
+SayiAyari(
+	GorunusSayfasi,
+	"Teleport Mesafesi",
 	"Mouse ray maksimum mesafesi.",
-	CONFIG.TELEPORT_DISTANCE,
+	AYAR.TELEPORT_MESAFE,
 	1,
 	100000,
-	1,
-	function(value)
+	100,
+	function(deger)
 
-		CONFIG.TELEPORT_DISTANCE =
-			value
+		AYAR.TELEPORT_MESAFE =
+			deger
 	end
 )
 
-CreateNumberSetting(
-	VisualPage,
-	"Teleport Height",
-	"Yüzeyden yükselme miktarı.",
-	CONFIG.TELEPORT_HEIGHT,
+SayiAyari(
+	GorunusSayfasi,
+	"Teleport Yuksekligi",
+	"Yuzeyden yukseklik.",
+	AYAR.TELEPORT_YUKSEKLIK,
 	0,
 	100,
-	0.1,
-	function(value)
+	0.5,
+	function(deger)
 
-		CONFIG.TELEPORT_HEIGHT =
-			value
+		AYAR.TELEPORT_YUKSEKLIK =
+			deger
 	end
 )
 
 --============================================================
--- SETTINGS PAGE
+-- AYARLAR SAYFASI
 --============================================================
 
-CreateSection(
-	SettingsPage,
-	"INTERFACE"
+Bolum(
+	AyarlarSayfasi,
+	"KLAVYE"
 )
 
-CreateAction(
-	SettingsPage,
-	"RESET AIM",
-	function()
-
-		ClearAim()
-
-		SetStatus(
-			"Aim hedefi sıfırlandı."
-		)
-	end
-)
-
-CreateAction(
-	SettingsPage,
-	"REFRESH ESP",
-	function()
-
-		RefreshESP()
-
-		SetStatus(
-			"ESP yenilendi."
-		)
-	end
-)
-
-CreateAction(
-	SettingsPage,
-	"RESTORE MOVEMENT",
-	function()
-
-		State.Speed =
-			false
-
-		State.Jump =
-			false
-
-		State.Fly =
-			false
-
-		State.Noclip =
-			false
-
-		State.InfiniteJump =
-			false
-
-		State.God =
-			false
-
-		if Humanoid then
-
-			Humanoid.WalkSpeed =
-				OriginalWalkSpeed
-
-			Humanoid.UseJumpPower =
-				OriginalUseJumpPower
-
-			Humanoid.JumpPower =
-				OriginalJumpPower
-
-			Humanoid.JumpHeight =
-				OriginalJumpHeight
-
-			Humanoid.AutoRotate =
-				OriginalAutoRotate
-		end
-
-		StopFly()
-		StopGod()
-		RestoreCollision()
-
-		SetSpeedToggle(false)
-		SetJumpToggle(false)
-		SetFlyToggle(false)
-		SetGodToggle(false)
-
-		SetStatus(
-			"Hareket ayarları geri yüklendi."
-		)
-	end
-)
-
-CreateSection(
-	SettingsPage,
-	"KEYS"
-)
-
-local KeyInfo =
+local TusBilgi =
 	Instance.new(
 		"TextLabel"
 	)
 
-KeyInfo.Size =
+TusBilgi.Size =
 	UDim2.new(
 		1,
 		0,
 		0,
-		80
+		92
 	)
 
-KeyInfo.BackgroundColor3 =
-	COLOR.CARD
+TusBilgi.BackgroundColor3 =
+	Color3.fromRGB(
+		27,
+		30,
+		40
+	)
 
-KeyInfo.BorderSizePixel =
+TusBilgi.BorderSizePixel =
 	0
 
-KeyInfo.Text =
-	"CTRL  → Panel aç / kapat\n" ..
-	"WASD → Fly hareketi\n" ..
-	"SPACE → Fly yukarı\n" ..
-	"SHIFT → Fly aşağı\n" ..
-	"Teleport → ON + dünya tıklaması"
+TusBilgi.Text =
+	"CTRL  → Paneli ac / kapat\n" ..
+	"RAlt  → AimLock ac / kapat\n" ..
+	"W A S D  → Fly hareketi\n" ..
+	"SPACE  → Fly yukari\n" ..
+	"SHIFT  → Fly asagi\n" ..
+	"Teleport  → Ac + dunyaya sol tik"
 
-KeyInfo.TextColor3 =
-	COLOR.SUB
+TusBilgi.TextColor3 =
+	Color3.fromRGB(
+		145,
+		151,
+		165
+	)
 
-KeyInfo.Font =
+TusBilgi.Font =
 	Enum.Font.Gotham
 
-KeyInfo.TextSize =
+TusBilgi.TextSize =
 	8
 
-KeyInfo.TextWrapped =
+TusBilgi.TextWrapped =
 	true
 
-KeyInfo.TextXAlignment =
+TusBilgi.TextXAlignment =
 	Enum.TextXAlignment.Left
 
-KeyInfo.TextYAlignment =
+TusBilgi.TextYAlignment =
 	Enum.TextYAlignment.Center
 
-KeyInfo.Parent =
-	SettingsPage
+TusBilgi.Parent =
+	AyarlarSayfasi
 
-local KeyCorner =
+local TusKose =
 	Instance.new(
 		"UICorner"
 	)
 
-KeyCorner.CornerRadius =
+TusKose.CornerRadius =
 	UDim.new(
 		0,
 		11
 	)
 
-KeyCorner.Parent =
-	KeyInfo
+TusKose.Parent =
+	TusBilgi
 
-CreateAction(
-	SettingsPage,
-	"HIDE PANEL",
+Bolum(
+	AyarlarSayfasi,
+	"SISTEM"
+)
+
+Aksiyon(
+	AyarlarSayfasi,
+	"AIM HEDEFINI SIFIRLA",
 	function()
 
-		Main.Visible =
+		AimTemizle()
+
+		DurumGuncelle(
+			"Aim hedefi sifirlandi.",
+			1
+		)
+	end
+)
+
+Aksiyon(
+	AyarlarSayfasi,
+	"ESP'YI YENILE",
+	function()
+
+		ESPYenile()
+
+		DurumGuncelle(
+			"ESP yenilendi.",
+			1
+		)
+	end
+)
+
+Aksiyon(
+	AyarlarSayfasi,
+	"HAREKETI GERI YUKLE",
+	function()
+
+		Durum.Hiz = false
+		Durum.Ziplama = false
+		Durum.Noclip = false
+		Durum.Fly = false
+		Durum.SonsuzZiplama = false
+		Durum.God = false
+		Durum.Teleport = false
+
+		if Humanoid then
+
+			Humanoid.WalkSpeed =
+				OrijinalHiz
+
+			Humanoid.UseJumpPower =
+				OrijinalJumpPowerKullan
+
+			Humanoid.JumpPower =
+				OrijinalJumpPower
+
+			Humanoid.JumpHeight =
+				OrijinalJumpHeight
+
+			Humanoid.AutoRotate =
+				OrijinalAutoRotate
+		end
+
+		FlyDurdur()
+		GodDurdur()
+
+		for parca,
+			eskiDeger in pairs(
+				Carpismalar
+			) do
+
+			if parca
+				and parca.Parent then
+
+				parca.CanCollide =
+					eskiDeger
+			end
+		end
+
+		table.clear(
+			Carpismalar
+		)
+
+		if HizAyarlaUI then
+			-- Hız toggle setter burada tutulmuyor.
+			-- Durum değişkeni yeterli.
+		end
+
+		DurumGuncelle(
+			"Hareket ayarlari geri yuklendi.",
+			2
+		)
+	end
+)
+
+Aksiyon(
+	AyarlarSayfasi,
+	"TUM ESP'LERI TEMIZLE",
+	function()
+
+		for oyuncu in pairs(
+			ESPNesneleri
+		) do
+
+			ESPSil(
+				oyuncu
+			)
+		end
+
+		Durum.ESP =
 			false
+
+		DurumGuncelle(
+			"ESP tamamen temizlendi.",
+			2
+		)
+	end
+)
+
+Aksiyon(
+	AyarlarSayfasi,
+	"AIM + ESP + HAREKET SIFIRLA",
+	function()
+
+		AimTemizle()
+
+		for oyuncu in pairs(
+			ESPNesneleri
+		) do
+
+			ESPSil(
+				oyuncu
+			)
+		end
+
+		Durum.Aim = false
+		Durum.ESP = false
+
+		Durum.Hiz = false
+		Durum.Ziplama = false
+		Durum.Noclip = false
+		Durum.Fly = false
+		Durum.SonsuzZiplama = false
+		Durum.God = false
+		Durum.Teleport = false
+
+		FlyDurdur()
+		GodDurdur()
+
+		for parca,
+			eskiDeger in pairs(
+				Carpismalar
+			) do
+
+			if parca
+				and parca.Parent then
+
+				parca.CanCollide =
+					eskiDeger
+			end
+		end
+
+		table.clear(
+			Carpismalar
+		)
+
+		if Humanoid then
+
+			Humanoid.WalkSpeed =
+				OrijinalHiz
+
+			Humanoid.UseJumpPower =
+				OrijinalJumpPowerKullan
+
+			Humanoid.JumpPower =
+				OrijinalJumpPower
+
+			Humanoid.JumpHeight =
+				OrijinalJumpHeight
+
+			Humanoid.AutoRotate =
+				OrijinalAutoRotate
+		end
+
+		DurumGuncelle(
+			"Yerel sistemler sifirlandi.",
+			2
+		)
 	end
 )
 
 --============================================================
--- TAB LOGIC
+-- FOV CEMBERI
 --============================================================
 
-local function OpenPage(name)
+local function FovOlustur()
 
-	for pageName, page in pairs(
-		Pages
-	) do
+	GuvenliSil(
+		FovCemberi
+	)
 
-		page.Visible =
-			(
-				pageName ==
-				name
+	local cember =
+		Instance.new(
+			"Frame"
+		)
+
+	cember.Name =
+		"AimFov"
+
+	cember.AnchorPoint =
+		Vector2.new(
+			0.5,
+			0.5
+		)
+
+	cember.Position =
+		UDim2.fromScale(
+			0.5,
+			0.5
+		)
+
+	cember.Size =
+		UDim2.fromOffset(
+			2,
+			2
+		)
+
+	cember.BackgroundTransparency =
+		1
+
+	cember.Visible =
+		false
+
+	cember.ZIndex =
+		100
+
+	cember.Parent =
+		AnaArayuz
+
+	local Kose =
+		Instance.new(
+			"UICorner"
+		)
+
+	Kose.CornerRadius =
+		UDim.new(
+			1,
+			0
+		)
+
+	Kose.Parent =
+		cember
+
+	local Cizgi =
+		Instance.new(
+			"UIStroke"
+		)
+
+	Cizgi.Name =
+		"FovCizgi"
+
+	Cizgi.Color =
+		AYAR.FOV_RENK
+
+	Cizgi.Thickness =
+		AYAR.FOV_KALINLIK
+
+	Cizgi.Transparency =
+		AYAR.FOV_SEFFAFLIK
+
+	Cizgi.Parent =
+		cember
+
+	FovCemberi =
+		cember
+end
+
+function FovGuncelle()
+
+	if not FovCemberi then
+		return
+	end
+
+	FovCemberi.Visible =
+		(
+			Durum.Aim
+			and
+			AYAR.FOV_GOSTER
+			and
+			AYAR.AIM_FOV > 0
+		)
+
+	if AYAR.AIM_FOV > 0 then
+
+		FovCemberi.Size =
+			UDim2.fromOffset(
+				AYAR.AIM_FOV * 2,
+				AYAR.AIM_FOV * 2
 			)
 	end
 
-	for tabName, tab in pairs(
-		Tabs
-	) do
+	local Cizgi =
+		FovCemberi:FindFirstChild(
+			"FovCizgi"
+		)
 
-		if tabName == name then
+	if Cizgi then
 
-			tab.BackgroundColor3 =
-				COLOR.BLUE
+		Cizgi.Color =
+			AYAR.FOV_RENK
 
-			tab.TextColor3 =
-				COLOR.TEXT
+		Cizgi.Thickness =
+			AYAR.FOV_KALINLIK
+
+		Cizgi.Transparency =
+			AYAR.FOV_SEFFAFLIK
+	end
+end
+
+FovOlustur()
+
+--============================================================
+-- SAYFA GECIS
+--============================================================
+
+local function SayfaAc(
+	ad
+)
+
+	for sayfaAdi,
+		sayfa in pairs(
+			Sayfalar
+		) do
+
+		sayfa.Visible =
+			(
+				sayfaAdi ==
+				ad
+			)
+	end
+
+	for sekmeAdi,
+		sekme in pairs(
+			Sekmeler
+		) do
+
+		if sekmeAdi ==
+			ad then
+
+			sekme.BackgroundColor3 =
+				Color3.fromRGB(
+					67,
+					137,
+					220
+				)
+
+			sekme.TextColor3 =
+				Color3.fromRGB(
+					245,
+					247,
+					250
+				)
 
 		else
 
-			tab.BackgroundColor3 =
-				COLOR.CARD
+			sekme.BackgroundColor3 =
+				Color3.fromRGB(
+					28,
+					31,
+					41
+				)
 
-			tab.TextColor3 =
-				COLOR.SUB
-
+			sekme.TextColor3 =
+				Color3.fromRGB(
+					145,
+					151,
+					165
+				)
 		end
 	end
 end
 
-CombatTab.MouseButton1Click:Connect(
+SavasSekme.MouseButton1Click:Connect(
 	function()
-		OpenPage("Combat")
+		SayfaAc("Savas")
 	end
 )
 
-MovementTab.MouseButton1Click:Connect(
+HareketSekme.MouseButton1Click:Connect(
 	function()
-		OpenPage("Movement")
+		SayfaAc("Hareket")
 	end
 )
 
-VisualTab.MouseButton1Click:Connect(
+GorunusSekme.MouseButton1Click:Connect(
 	function()
-		OpenPage("Visual")
+		SayfaAc("Gorunus")
 	end
 )
 
-SettingsTab.MouseButton1Click:Connect(
+AyarlarSekme.MouseButton1Click:Connect(
 	function()
-		OpenPage("Settings")
+		SayfaAc("Ayarlar")
 	end
 )
 
-OpenPage(
-	"Combat"
+SayfaAc(
+	"Savas"
 )
 
 --============================================================
--- FOV CIRCLE
+-- SURUKLENEBILIR OBJE
 --============================================================
 
-CreateFOVCircle()
+local function Suruklenebilir(
+	tutulabilir,
+	hedef
+)
+
+	local surukleniyor =
+		false
+
+	local suruklemeGirdisi =
+		nil
+
+	local suruklemeBaslangici =
+		nil
+
+	local hedefBaslangici =
+		nil
+
+	tutulabilir.InputBegan:Connect(
+		function(
+			girdi
+		)
+
+			if girdi.UserInputType ==
+				Enum.UserInputType.MouseButton1
+				or
+				girdi.UserInputType ==
+					Enum.UserInputType.Touch then
+
+				surukleniyor =
+					true
+
+				suruklemeBaslangici =
+					girdi.Position
+
+				hedefBaslangici =
+					hedef.Position
+
+				suruklemeGirdisi =
+					girdi
+			end
+		end
+	)
+
+	Giris.InputChanged:Connect(
+		function(
+			girdi
+		)
+
+			if not surukleniyor then
+				return
+			end
+
+			if girdi.UserInputType ~=
+				Enum.UserInputType.MouseMovement
+				and
+				girdi.UserInputType ~=
+					Enum.UserInputType.Touch then
+
+				return
+			end
+
+			local fark =
+				girdi.Position -
+				suruklemeBaslangici
+
+			local kamera =
+				Dunya.CurrentCamera
+
+			local viewport =
+				kamera
+				and kamera.ViewportSize
+				or Vector2.new(
+					1920,
+					1080
+				)
+
+			local genislik =
+				hedef.AbsoluteSize.X
+
+			local yukseklik =
+				hedef.AbsoluteSize.Y
+
+			local x =
+				hedefBaslangici.X.Offset +
+				fark.X
+
+			local y =
+				hedefBaslangici.Y.Offset +
+				fark.Y
+
+			x =
+				math.clamp(
+					x,
+					5,
+					math.max(
+						5,
+						viewport.X -
+						genislik -
+						5
+					)
+				)
+
+			y =
+				math.clamp(
+					y,
+					5,
+					math.max(
+						5,
+						viewport.Y -
+						yukseklik -
+						5
+					)
+				)
+
+			hedef.Position =
+				UDim2.fromOffset(
+					x,
+					y
+				)
+		end
+	)
+
+	Giris.InputEnded:Connect(
+		function(
+			girdi
+		)
+
+			if not surukleniyor then
+				return
+			end
+
+			if girdi ==
+				suruklemeGirdisi
+				or
+				girdi.UserInputType ==
+					Enum.UserInputType.MouseButton1
+				or
+				girdi.UserInputType ==
+					Enum.UserInputType.Touch then
+
+				surukleniyor =
+					false
+
+				suruklemeGirdisi =
+					nil
+			end
+		end
+	)
+end
+
+--============================================================
+-- PANELI AC / KAPAT
+--============================================================
+
+local function PaneliGoster(
+	goster
+)
+
+	AnaPanel.Visible =
+		goster
+
+	if Baslatici then
+
+		Baslatici.Visible =
+			not goster
+	end
+end
+
+--============================================================
+-- BASLATICI / KARE BUTON
+--============================================================
+
+Baslatici =
+	Instance.new(
+		"TextButton"
+	)
+
+Baslatici.Name =
+	"PanelBaslatici"
+
+Baslatici.Size =
+	UDim2.fromOffset(
+		58,
+		58
+	)
+
+Baslatici.Position =
+	UDim2.fromOffset(
+		20,
+		120
+	)
+
+Baslatici.BackgroundColor3 =
+	Color3.fromRGB(
+		23,
+		26,
+		35
+	)
+
+Baslatici.BorderSizePixel =
+	0
+
+Baslatici.Text =
+	"PC"
+
+Baslatici.TextColor3 =
+	Color3.fromRGB(
+		245,
+		247,
+		250
+	)
+
+Baslatici.Font =
+	Enum.Font.GothamBold
+
+Baslatici.TextSize =
+	11
+
+Baslatici.AutoButtonColor =
+	false
+
+Baslatici.Visible =
+	false
+
+Baslatici.Parent =
+	AnaArayuz
+
+local BaslaticiKose =
+	Instance.new(
+		"UICorner"
+	)
+
+BaslaticiKose.CornerRadius =
+	UDim.new(
+		0,
+		15
+	)
+
+BaslaticiKose.Parent =
+	Baslatici
+
+local BaslaticiCizgi =
+	Instance.new(
+		"UIStroke"
+	)
+
+BaslaticiCizgi.Color =
+	Color3.fromRGB(
+		68,
+		74,
+		92
+	)
+
+BaslaticiCizgi.Transparency =
+	0.25
+
+BaslaticiCizgi.Parent =
+	Baslatici
+
+--============================================================
+-- BASLATICI SURUKLE
+--============================================================
+
+Suruklenebilir(
+	Baslatici,
+	Baslatici
+)
+
+--============================================================
+-- PANEL BASLIK SURUKLE
+--============================================================
+
+Suruklenebilir(
+	Baslik,
+	AnaPanel
+)
+
+--============================================================
+-- KUCULT / KAPAT
+--============================================================
+
+Kucult.MouseButton1Click:Connect(
+	function()
+
+		PaneliGoster(
+			false
+		)
+
+		DurumGuncelle(
+			"Panel kucultuldu.",
+			1
+		)
+	end
+)
+
+Kapat.MouseButton1Click:Connect(
+	function()
+
+		PaneliGoster(
+			false
+		)
+	end
+)
+
+Baslatici.MouseButton1Click:Connect(
+	function()
+
+		PaneliGoster(
+			true
+		)
+
+		SayfaAc(
+			"Savas"
+		)
+	end
+)
+
+--============================================================
+-- CTRL
+--============================================================
+
+Giris.InputBegan:Connect(
+	function(
+		girdi,
+		islenmis
+	)
+
+		if islenmis then
+			return
+		end
+
+		if girdi.KeyCode ==
+			Enum.KeyCode.LeftControl
+			or
+			girdi.KeyCode ==
+				Enum.KeyCode.RightControl then
+
+			PaneliGoster(
+				not AnaPanel.Visible
+			)
+		end
+	end
+)
+
+--============================================================
+-- AIM KISA TUS
+--============================================================
+
+Giris.InputBegan:Connect(
+	function(
+		girdi,
+		islenmis
+	)
+
+		if islenmis then
+			return
+		end
+
+		if girdi.KeyCode ==
+			Enum.KeyCode.RightAlt then
+
+			if AimAyarlaUI then
+
+				-- Tum mantik callback icinde oldugu
+				-- icin butonun tiklanmasini simule
+				-- etmiyoruz.
+				Durum.Aim =
+					not Durum.Aim
+
+				AimTemizle()
+
+				if Durum.Aim then
+
+					DurumGuncelle(
+						"Aim aktif • En yakin oyuncu araniyor.",
+						1.5
+					)
+
+				else
+
+					DurumGuncelle(
+						"Aim kapali.",
+						1.5
+					)
+				end
+
+				FovGuncelle()
+			end
+		end
+	end
+)
+
+--============================================================
+-- TELEPORT PANEL KONTROL
+--============================================================
+
+local function ImlecinPaneldeMi(
+	x,
+	y
+)
+
+	local guiNesneleri =
+		ArayuzHizmeti:GetGuiObjectsAtPosition(
+			x,
+			y
+		)
+
+	for _, nesne in ipairs(
+		guiNesneleri
+	) do
+
+		if nesne:IsDescendantOf(
+			AnaPanel
+		) then
+
+			return true
+		end
+	end
+
+	return false
+end
+
+--============================================================
+-- TELEPORT
+--============================================================
+
+local function TeleportYap(
+	ekranKonumu
+)
+
+	if not Karakter
+		or not Karakter.Parent
+		or not Govde
+		or not Govde.Parent then
+
+		Karakter =
+			YerelOyuncu.Character
+
+		if Karakter then
+
+			Humanoid =
+				Karakter:FindFirstChildOfClass(
+					"Humanoid"
+				)
+
+			Govde =
+				Karakter:FindFirstChild(
+					"HumanoidRootPart"
+				)
+		end
+	end
+
+	if not Karakter
+		or not Govde then
+
+		DurumGuncelle(
+			"Teleport • Karakter hazir degil.",
+			2
+		)
+
+		return
+	end
+
+	local kamera =
+		Dunya.CurrentCamera
+
+	if not kamera then
+		return
+	end
+
+	-- Ekran koordinatindan viewport koordinatina
+	local ustSolInset =
+		ArayuzHizmeti:GetGuiInset()
+
+	local viewportX =
+		ekranKonumu.X -
+		ustSolInset.X
+
+	local viewportY =
+		ekranKonumu.Y -
+		ustSolInset.Y
+
+	-- Negatif degerleri engelle
+	viewportX =
+		math.max(
+			0,
+			viewportX
+		)
+
+	viewportY =
+		math.max(
+			0,
+			viewportY
+		)
+
+	local isin =
+		kamera:ViewportPointToRay(
+			viewportX,
+			viewportY,
+			0
+		)
+
+	local parametre =
+		RaycastParams.new()
+
+	parametre.FilterType =
+		Enum.RaycastFilterType.Exclude
+
+	parametre.FilterDescendantsInstances = {
+		Karakter
+	}
+
+	parametre.IgnoreWater =
+		true
+
+	local sonuc =
+		Dunya:Raycast(
+			isin.Origin,
+			isin.Direction *
+				AYAR.TELEPORT_MESAFE,
+			parametre
+		)
+
+	if not sonuc then
+
+		DurumGuncelle(
+			"Teleport • Yuzey bulunamadi.",
+			2
+		)
+
+		return
+	end
+
+	local hedef =
+		sonuc.Position
+
+	if sonuc.Normal.Y >=
+		0.6 then
+
+		hedef +=
+			Vector3.new(
+				0,
+				AYAR.TELEPORT_YUKSEKLIK,
+				0
+			)
+
+	else
+
+		hedef +=
+			sonuc.Normal *
+			math.max(
+				AYAR.TELEPORT_YUKSEKLIK,
+				1
+			)
+	end
+
+	local bakis =
+		Govde.CFrame.LookVector
+
+	local yatay =
+		Vector3.new(
+			bakis.X,
+			0,
+			bakis.Z
+		)
+
+	if yatay.Magnitude <
+		0.001 then
+
+		yatay =
+			Vector3.new(
+				0,
+				0,
+				-1
+			)
+
+	else
+
+		yatay =
+			yatay.Unit
+	end
+
+	Govde.AssemblyLinearVelocity =
+		Vector3.zero
+
+	Govde.AssemblyAngularVelocity =
+		Vector3.zero
+
+	Karakter:PivotTo(
+		CFrame.lookAt(
+			hedef,
+			hedef + yatay
+		)
+	)
+
+	Govde.AssemblyLinearVelocity =
+		Vector3.zero
+
+	Govde.AssemblyAngularVelocity =
+		Vector3.zero
+
+	DurumGuncelle(
+		"Teleport basarili.",
+		1.5
+	)
+end
+
+--============================================================
+-- TELEPORT INPUT
+--============================================================
+
+Giris.InputBegan:Connect(
+	function(
+		girdi,
+		islenmis
+	)
+
+		if not Durum.Teleport then
+			return
+		end
+
+		if girdi.UserInputType ~=
+			Enum.UserInputType.MouseButton1
+			and
+			girdi.UserInputType ~=
+				Enum.UserInputType.Touch then
+
+			return
+		end
+
+		if girdi.UserInputType ==
+			Enum.UserInputType.MouseButton1 then
+
+			if islenmis then
+				return
+			end
+
+			if ImlecinPaneldeMi(
+				girdi.Position.X,
+				girdi.Position.Y
+			) then
+
+				return
+			end
+		end
+
+		TeleportYap(
+			girdi.Position
+		)
+	end
+)
+
+--============================================================
+-- AIM LOOP
+--============================================================
+
+Calistirici:BindToRenderStep(
+	"OyuncuKontrol_Aim",
+	Enum.RenderPriority.Camera.Value + 50,
+	function(deltaTime)
+
+		if not Durum.Aim then
+
+			FovGuncelle()
+
+			return
+		end
+
+		local kamera =
+			Dunya.CurrentCamera
+
+		if not kamera
+			or not Govde then
+
+			return
+		end
+
+		AimSayaci +=
+			deltaTime
+
+		AimTaramaSayaci +=
+			deltaTime
+
+		AimKontrolSayaci +=
+			deltaTime
+
+		--====================================================
+		-- MEVCUT HEDEF
+		--====================================================
+
+		if AimHedefi
+			and AimParcasi
+			and AimKontrolSayaci >=
+				0.03 then
+
+			AimKontrolSayaci =
+				0
+
+			local yeniParca =
+				AimParcasiAl(
+					AimHedefi
+				)
+
+			if yeniParca
+				and AimHedefGecerli(
+					AimHedefi,
+					yeniParca
+				) then
+
+				AimParcasi =
+					yeniParca
+
+			else
+
+				AimTemizle()
+			end
+		end
+
+		--====================================================
+		-- YENI HEDEF
+		--====================================================
+
+		if not AimHedefi
+			or not AimParcasi
+			or AimTaramaSayaci >=
+				AYAR.AIM_DEGISIM then
+
+			AimTaramaSayaci =
+				0
+
+			local oyuncu,
+				parca =
+				EnIyiHedefiBul()
+
+			if oyuncu
+				and parca then
+
+				AimHedefi =
+					oyuncu
+
+				AimParcasi =
+					parca
+
+				AimSayaci =
+					0
+
+			else
+
+				AimTemizle()
+
+				DurumGuncelle(
+					"Aim aktif • Uygun oyuncu bulunamadi.",
+					0.5
+				)
+
+				return
+			end
+		end
+
+		if not AimHedefi
+			or not AimParcasi then
+
+			return
+		end
+
+		--====================================================
+		-- HEDEF POZISYONU
+		--====================================================
+
+		local hedefKonum =
+			TahminliPozisyon(
+				AimParcasi
+			)
+
+		if not hedefKonum then
+			return
+		end
+
+		hedefKonum +=
+			Vector3.new(
+				0,
+				AYAR.AIM_YUKSEKLIK,
+				0
+			)
+
+		--====================================================
+		-- KAMERA
+		--====================================================
+
+		local kameraKonum =
+			kamera.CFrame.Position
+
+		local fark =
+			hedefKonum -
+			kameraKonum
+
+		if fark.Magnitude <=
+			0.001 then
+
+			return
+		end
+
+		local hedefCFrame =
+			CFrame.lookAt(
+				kameraKonum,
+				hedefKonum
+			)
+
+		local yumusaklik =
+			math.clamp(
+				AYAR.AIM_YUMUSAKLIK,
+				0.01,
+				1
+			)
+
+		if yumusaklik >= 1 then
+
+			kamera.CFrame =
+				hedefCFrame
+
+		else
+
+			local alpha =
+				math.clamp(
+					yumusaklik *
+					12 *
+					deltaTime,
+					0,
+					1
+				)
+
+			kamera.CFrame =
+				kamera.CFrame:Lerp(
+					hedefCFrame,
+					alpha
+				)
+		end
+
+		--====================================================
+		-- STATUS
+		--====================================================
+
+		local mesafe =
+			math.floor(
+				MesafeAl(
+					AimParcasi.Position
+				)
+			)
+
+		DurumGuncelle(
+			"AIM AKTIF  •  " ..
+			AimHedefi.Name ..
+			"  •  " ..
+			tostring(
+				mesafe
+			) ..
+			" studs"
+		)
+
+		FovGuncelle()
+	end
+)
 
 --============================================================
 -- FLY LOOP
 --============================================================
 
-RunService:BindToRenderStep(
-	"PLAYER_CONTROL_FLY",
+Calistirici:BindToRenderStep(
+	"OyuncuKontrol_Fly",
 	Enum.RenderPriority.Character.Value + 10,
 	function()
 
-		if not State.Fly then
+		if not Durum.Fly then
 			return
 		end
 
-		if not RootPart
-			or not RootPart.Parent then
+		if not Govde
+			or not Govde.Parent then
 
 			return
 		end
 
-		if not FlyVelocity
-			or not FlyOrientation then
+		if not FlyHiz
+			or not FlyYon then
 
-			if not StartFly() then
+			if not FlyBaslat() then
 				return
 			end
 		end
 
-		local camera =
-			Workspace.CurrentCamera
+		local kamera =
+			Dunya.CurrentCamera
 
-		if not camera then
+		if not kamera then
 			return
 		end
 
-		local direction =
+		local yon =
 			Vector3.zero
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.W
 		) then
 
-			direction +=
-				camera.CFrame.LookVector
+			yon +=
+				kamera.CFrame.LookVector
 		end
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.S
 		) then
 
-			direction -=
-				camera.CFrame.LookVector
+			yon -=
+				kamera.CFrame.LookVector
 		end
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.A
 		) then
 
-			direction -=
-				camera.CFrame.RightVector
+			yon -=
+				kamera.CFrame.RightVector
 		end
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.D
 		) then
 
-			direction +=
-				camera.CFrame.RightVector
+			yon +=
+				kamera.CFrame.RightVector
 		end
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.Space
 		) then
 
-			direction +=
+			yon +=
 				Vector3.yAxis
 		end
 
-		if UserInputService:IsKeyDown(
+		if Giris:IsKeyDown(
 			Enum.KeyCode.LeftShift
 		)
 		or
-		UserInputService:IsKeyDown(
+		Giris:IsKeyDown(
 			Enum.KeyCode.RightShift
 		) then
 
-			direction -=
+			yon -=
 				Vector3.yAxis
 		end
 
-		if direction.Magnitude > 0 then
+		if yon.Magnitude > 0 then
 
-			direction =
-				direction.Unit
+			yon =
+				yon.Unit
 		end
 
-		FlyVelocity.VectorVelocity =
-			direction *
-			CONFIG.FLY_SPEED
+		FlyHiz.VectorVelocity =
+			yon *
+			AYAR.UCUS_HIZI
 
-		local lookDirection =
-			camera.CFrame.LookVector
+		local bakis =
+			kamera.CFrame.LookVector
 
-		local horizontalLook =
+		local yatay =
 			Vector3.new(
-				lookDirection.X,
+				bakis.X,
 				0,
-				lookDirection.Z
+				bakis.Z
 			)
 
-		if horizontalLook.Magnitude >
+		if yatay.Magnitude >
 			0.001 then
 
-			horizontalLook =
-				horizontalLook.Unit
+			yatay =
+				yatay.Unit
 
-			FlyOrientation.CFrame =
+			FlyYon.CFrame =
 				CFrame.lookAt(
 					Vector3.zero,
-					horizontalLook
+					yatay
 				)
 		end
 	end
@@ -4555,31 +5954,31 @@ RunService:BindToRenderStep(
 -- NOCLIP LOOP
 --============================================================
 
-RunService.Stepped:Connect(
+Calistirici.Stepped:Connect(
 	function()
 
-		if not State.Noclip then
+		if not Durum.Noclip then
 			return
 		end
 
-		if not Character then
+		if not Karakter then
 			return
 		end
 
-		for _, part in ipairs(
-			Character:GetDescendants()
+		for _, parca in ipairs(
+			Karakter:GetDescendants()
 		) do
 
-			if part:IsA("BasePart") then
+			if parca:IsA("BasePart") then
 
-				if CollisionMemory[part] ==
+				if Carpismalar[parca] ==
 					nil then
 
-					CollisionMemory[part] =
-						part.CanCollide
+					Carpismalar[parca] =
+						parca.CanCollide
 				end
 
-				part.CanCollide =
+				parca.CanCollide =
 					false
 			end
 		end
@@ -4587,13 +5986,13 @@ RunService.Stepped:Connect(
 )
 
 --============================================================
--- INFINITE JUMP
+-- SONSUZ ZIPLAMA
 --============================================================
 
-UserInputService.JumpRequest:Connect(
+Giris.JumpRequest:Connect(
 	function()
 
-		if not State.InfiniteJump then
+		if not Durum.SonsuzZiplama then
 			return
 		end
 
@@ -4608,607 +6007,13 @@ UserInputService.JumpRequest:Connect(
 )
 
 --============================================================
--- AIMLOCK LOOP
+-- HIZ KORUMA
 --============================================================
 
-RunService:BindToRenderStep(
-	"PLAYER_CONTROL_AIM",
-	Enum.RenderPriority.Camera.Value + 100,
-	function(deltaTime)
-
-		if not State.AimLock then
-
-			UpdateFOVCircle()
-
-			return
-		end
-
-		local camera =
-			Workspace.CurrentCamera
-
-		if not camera
-			or not RootPart then
-
-			return
-		end
-
-		AimTimer +=
-			deltaTime
-
-		AimScanTimer +=
-			deltaTime
-
-		AimValidationTimer +=
-			deltaTime
-
-		--====================================================
-		-- CURRENT TARGET VALIDATION
-		--====================================================
-
-		if AimTarget
-			and AimPart
-			and AimValidationTimer >=
-				0.03 then
-
-			AimValidationTimer = 0
-
-			local newPart =
-				GetAimPart(
-					AimTarget
-				)
-
-			if newPart
-				and IsValidTarget(
-					AimTarget,
-					newPart
-				) then
-
-				AimPart =
-					newPart
-
-			else
-
-				ClearAim()
-			end
-		end
-
-		--====================================================
-		-- SEARCH
-		--====================================================
-
-		if not AimTarget
-			or not AimPart
-			or AimScanTimer >=
-				CONFIG.AIM_SWITCH then
-
-			AimScanTimer = 0
-
-			local player,
-				part =
-				FindNearestPlayer()
-
-			if player
-				and part then
-
-				if AimTarget ~=
-					player then
-
-					AimTimer = 0
-				end
-
-				AimTarget =
-					player
-
-				AimPart =
-					part
-
-			else
-
-				ClearAim()
-
-				SetStatus(
-					"Nearest Player Aim aktif.\n" ..
-					"Uygun oyuncu bulunamadı."
-				)
-
-				return
-			end
-		end
-
-		if not AimTarget
-			or not AimPart then
-
-			return
-		end
-
-		--====================================================
-		-- TARGET POSITION
-		--====================================================
-
-		local targetPosition =
-			GetPredictedPosition(
-				AimPart
-			)
-
-		if not targetPosition then
-			return
-		end
-
-		targetPosition +=
-			Vector3.new(
-				0,
-				CONFIG.AIM_HEIGHT,
-				0
-			)
-
-		--====================================================
-		-- CAMERA AIM
-		--====================================================
-
-		local cameraPosition =
-			camera.CFrame.Position
-
-		local difference =
-			targetPosition -
-			cameraPosition
-
-		if difference.Magnitude <
-			0.001 then
-
-			return
-		end
-
-		local desired =
-			CFrame.lookAt(
-				cameraPosition,
-				targetPosition
-			)
-
-		local smooth =
-			math.clamp(
-				CONFIG.AIM_SMOOTH,
-				0.01,
-				1
-			)
-
-		camera.CFrame =
-			camera.CFrame:Lerp(
-				desired,
-				smooth
-			)
-
-		--====================================================
-		-- STATUS
-		--====================================================
-
-		local distance =
-			math.floor(
-				GetDistance(
-					AimPart.Position
-				)
-			)
-
-		local targetName =
-			AimTarget.DisplayName
-			or AimTarget.Name
-
-		SetStatus(
-			"AIMLOCK ACTIVE  •  " ..
-			targetName ..
-			"  •  " ..
-			tostring(
-				distance
-			) ..
-			" studs"
-		)
-
-		UpdateFOVCircle()
-	end
-)
-
---============================================================
--- TELEPORT RAY
---============================================================
-
-local function GetMouseRay()
-
-	local camera =
-		Workspace.CurrentCamera
-
-	if not camera then
-		return nil, nil
-	end
-
-	local mousePosition =
-		UserInputService:GetMouseLocation()
-
-	local ray =
-		camera:ViewportPointToRay(
-			mousePosition.X,
-			mousePosition.Y
-		)
-
-	return ray.Origin,
-		ray.Direction
-end
-
-local function TeleportToMouse()
-
-	if not Character
-		or not RootPart then
-
-		RefreshCharacter()
-
-	end
-
-	if not RootPart
-		or not Character then
-
-		SetStatus(
-			"Teleport: karakter hazır değil."
-		)
-
-		return
-	end
-
-	local origin,
-		direction =
-		GetMouseRay()
-
-	if not origin
-		or not direction then
-
-		SetStatus(
-			"Teleport: mouse ray alınamadı."
-		)
-
-		return
-	end
-
-	local params =
-		RaycastParams.new()
-
-	params.FilterType =
-		Enum.RaycastFilterType.Exclude
-
-	params.FilterDescendantsInstances = {
-		Character,
-	}
-
-	params.IgnoreWater =
-		true
-
-	local result =
-		Workspace:Raycast(
-			origin,
-			direction.Unit *
-				CONFIG.TELEPORT_DISTANCE,
-			params
-		)
-
-	if not result then
-
-		SetStatus(
-			"Teleport: yüzey bulunamadı."
-		)
-
-		return
-	end
-
-	local targetPosition =
-		result.Position
-
-	local offset =
-		CONFIG.TELEPORT_HEIGHT
-
-	if result.Normal.Y >= 0.6 then
-
-		targetPosition +=
-			Vector3.new(
-				0,
-				offset,
-				0
-			)
-
-	else
-
-		targetPosition +=
-			result.Normal *
-			math.max(
-				offset,
-				1
-			)
-	end
-
-	RootPart.AssemblyLinearVelocity =
-		Vector3.zero
-
-	RootPart.AssemblyAngularVelocity =
-		Vector3.zero
-
-	Character:PivotTo(
-		CFrame.new(
-			targetPosition
-		)
-	)
-
-	RootPart.AssemblyLinearVelocity =
-		Vector3.zero
-
-	RootPart.AssemblyAngularVelocity =
-		Vector3.zero
-
-	SetStatus(
-		"Teleport başarılı."
-	)
-end
-
---============================================================
--- TELEPORT CLICK
---============================================================
-
-UserInputService.InputBegan:Connect(
-	function(input, processed)
-
-		if processed then
-			return
-		end
-
-		if input.UserInputType ==
-			Enum.UserInputType.MouseButton1 then
-
-			if not State.Teleport then
-				return
-			end
-
-			local mousePosition =
-				UserInputService:GetMouseLocation()
-
-			local guiObjects =
-				GuiService:GetGuiObjectsAtPosition(
-					mousePosition.X,
-					mousePosition.Y
-				)
-
-			for _, object in ipairs(
-				guiObjects
-			) do
-
-				if object:IsDescendantOf(
-					Main
-				) then
-
-					return
-				end
-			end
-
-			TeleportToMouse()
-		end
-	end
-)
-
---============================================================
--- CLOSE / CTRL
---============================================================
-
-local Launcher =
-	Instance.new(
-		"TextButton"
-	)
-
-Launcher.Size =
-	UDim2.fromOffset(
-		54,
-		54
-	)
-
-Launcher.Position =
-	UDim2.fromOffset(
-		20,
-		20
-	)
-
-Launcher.BackgroundColor3 =
-	COLOR.HEADER
-
-Launcher.BorderSizePixel =
-	0
-
-Launcher.Text =
-	"PC"
-
-Launcher.TextColor3 =
-	COLOR.TEXT
-
-Launcher.Font =
-	Enum.Font.GothamBold
-
-Launcher.TextSize =
-	10
-
-Launcher.Visible =
-	false
-
-Launcher.Parent =
-	ScreenGui
-
-local LauncherCorner =
-	Instance.new(
-		"UICorner"
-	)
-
-LauncherCorner.CornerRadius =
-	UDim.new(
-		0,
-		14
-	)
-
-LauncherCorner.Parent =
-	Launcher
-
-Close.MouseButton1Click:Connect(
+Calistirici.Heartbeat:Connect(
 	function()
 
-		Main.Visible =
-			false
-
-		Launcher.Visible =
-			true
-	end
-)
-
-Launcher.MouseButton1Click:Connect(
-	function()
-
-		Main.Visible =
-			true
-
-		Launcher.Visible =
-			false
-	end
-)
-
-UserInputService.InputBegan:Connect(
-	function(input, processed)
-
-		if processed then
-			return
-		end
-
-		if input.KeyCode ==
-			Enum.KeyCode.LeftControl
-			or
-			input.KeyCode ==
-				Enum.KeyCode.RightControl then
-
-			local newVisible =
-				not Main.Visible
-
-			Main.Visible =
-				newVisible
-
-			Launcher.Visible =
-				not newVisible
-		end
-	end
-)
-
---============================================================
--- DRAG
---============================================================
-
-local dragging =
-	false
-
-local dragStart =
-	nil
-
-local dragPosition =
-	nil
-
-Header.InputBegan:Connect(
-	function(input)
-
-		if input.UserInputType ==
-			Enum.UserInputType.MouseButton1 then
-
-			dragging =
-				true
-
-			dragStart =
-				input.Position
-
-			dragPosition =
-				Main.Position
-		end
-	end
-)
-
-UserInputService.InputChanged:Connect(
-	function(input)
-
-		if not dragging then
-			return
-		end
-
-		if input.UserInputType ~=
-			Enum.UserInputType.MouseMovement then
-
-			return
-		end
-
-		local delta =
-			input.Position -
-			dragStart
-
-		Main.Position =
-			UDim2.new(
-				dragPosition.X.Scale,
-				dragPosition.X.Offset +
-					delta.X,
-
-				dragPosition.Y.Scale,
-				dragPosition.Y.Offset +
-					delta.Y
-			)
-	end
-)
-
-UserInputService.InputEnded:Connect(
-	function(input)
-
-		if input.UserInputType ==
-			Enum.UserInputType.MouseButton1 then
-
-			dragging =
-				false
-		end
-	end
-)
-
---============================================================
--- RESPAWN ESP HOOKS
---============================================================
-
-Players.PlayerAdded:Connect(
-	function(player)
-
-		player.CharacterAdded:Connect(
-			function(character)
-
-				task.wait(
-					0.25
-				)
-
-				if State.ESP then
-					AddESP(player)
-				end
-			end
-		)
-	end
-)
-
-Players.PlayerRemoving:Connect(
-	function(player)
-
-		RemoveESP(player)
-
-		if AimTarget ==
-			player then
-
-			ClearAim()
-		end
-	end
-)
-
---============================================================
--- SPEED MAINTAIN
---============================================================
-
-RunService.Heartbeat:Connect(
-	function()
-
-		if not State.Speed then
+		if not Durum.Hiz then
 			return
 		end
 
@@ -5219,70 +6024,446 @@ RunService.Heartbeat:Connect(
 		end
 
 		if Humanoid.WalkSpeed ~=
-			CONFIG.SPEED then
+			AYAR.HIZ then
 
 			Humanoid.WalkSpeed =
-				CONFIG.SPEED
+				AYAR.HIZ
 		end
 	end
 )
 
 --============================================================
--- FOV COLOR UPDATE
+-- ESP OTOMATIK YENILEME
 --============================================================
 
-RunService.RenderStepped:Connect(
+task.spawn(
 	function()
 
-		if not AimFOVCircle then
+		while AnaArayuz
+			and AnaArayuz.Parent do
+
+			task.wait(
+				0.25
+			)
+
+			if not Durum.ESP then
+				continue
+			end
+
+			for _, oyuncu in ipairs(
+				Oyuncular:GetPlayers()
+			) do
+
+				if oyuncu ~=
+					YerelOyuncu then
+
+					local karakter =
+						KarakterAl(
+							oyuncu
+						)
+
+					local veri =
+						ESPNesneleri[
+							oyuncu
+						]
+
+					if not karakter then
+
+						ESPSil(
+							oyuncu
+						)
+
+					elseif not veri
+						or veri.Karakter ~=
+							karakter then
+
+						ESPEkle(
+							oyuncu
+						)
+					end
+				end
+			end
+		end
+	end
+)
+
+--============================================================
+-- ESP BILGI GUNCELLEME
+--============================================================
+
+task.spawn(
+	function()
+
+		while AnaArayuz
+			and AnaArayuz.Parent do
+
+			task.wait(
+				0.20
+			)
+
+			if not Durum.ESP then
+				continue
+			end
+
+			for oyuncu,
+				veri in pairs(
+					ESPNesneleri
+				) do
+
+				if veri.Etiket then
+
+					local bilgi =
+						veri.Etiket:FindFirstChild(
+							"Bilgi"
+						)
+
+					if bilgi then
+
+						local parca =
+							AimParcasiAl(
+								oyuncu
+							)
+
+						local humanoid =
+							HumanoidAl(
+								oyuncu
+							)
+
+						local metin =
+							""
+
+						if AYAR.ESP_CAN
+							and humanoid then
+
+							metin =
+								"CAN: " ..
+								tostring(
+									math.floor(
+										humanoid.Health
+									)
+								)
+						end
+
+						if AYAR.ESP_MESAFE_YAZ
+							and parca then
+
+							local mesafe =
+								math.floor(
+									MesafeAl(
+										parca.Position
+									)
+								)
+
+							if #metin > 0 then
+
+								metin =
+									metin ..
+									"  •  " ..
+									tostring(
+										mesafe
+									) ..
+									" studs"
+
+							else
+
+								metin =
+									tostring(
+										mesafe
+									) ..
+									" studs"
+							end
+						end
+
+						bilgi.Text =
+							metin
+					end
+				end
+			end
+		end
+	end
+)
+
+--============================================================
+-- OYUNCU EKLENDI
+--============================================================
+
+Oyuncular.PlayerAdded:Connect(
+	function(
+		oyuncu
+	)
+
+	oyuncu.CharacterAdded:Connect(
+		function()
+
+			task.wait(
+				0.25
+			)
+
+			if Durum.ESP then
+
+				ESPEkle(
+					oyuncu
+				)
+			end
+		end
+	)
+end)
+
+--============================================================
+-- OYUNCU CIKTI
+--============================================================
+
+Oyuncular.PlayerRemoving:Connect(
+	function(
+		oyuncu
+	)
+
+	ESPSil(
+		oyuncu
+	)
+
+	if AimHedefi ==
+		oyuncu then
+
+		AimTemizle()
+	end
+end)
+
+--============================================================
+-- FOV GORSEL GUNCELLEME
+--============================================================
+
+Calistirici.RenderStepped:Connect(
+	function()
+
+		FovGuncelle()
+	end
+)
+
+--============================================================
+-- PANEL SINIRLARI
+--============================================================
+
+Calistirici.RenderStepped:Connect(
+	function()
+
+		if not AnaPanel
+			or not AnaPanel.Visible then
+
 			return
 		end
 
-		local stroke =
-			AimFOVCircle:FindFirstChild(
-				"FOVStroke"
-			)
+		local kamera =
+			Dunya.CurrentCamera
 
-		if stroke then
-
-			stroke.Color =
-				CONFIG.FOV_COLOR
-
-			stroke.Thickness =
-				CONFIG.FOV_THICKNESS
-
-			stroke.Transparency =
-				CONFIG.FOV_TRANSPARENCY
+		if not kamera then
+			return
 		end
 
-		UpdateFOVCircle()
+		local viewport =
+			kamera.ViewportSize
+
+		local genislik =
+			AnaPanel.AbsoluteSize.X
+
+		local yukseklik =
+			AnaPanel.AbsoluteSize.Y
+
+		local x =
+			AnaPanel.Position.X.Offset
+
+		local y =
+			AnaPanel.Position.Y.Offset
+
+		local yeniX =
+			math.clamp(
+				x,
+				5,
+				math.max(
+					5,
+					viewport.X -
+					genislik -
+					5
+				)
+			)
+
+		local yeniY =
+			math.clamp(
+				y,
+				5,
+				math.max(
+					5,
+					viewport.Y -
+					yukseklik -
+					5
+				)
+			)
+
+		if x ~= yeniX
+			or y ~= yeniY then
+
+			AnaPanel.Position =
+				UDim2.fromOffset(
+					yeniX,
+					yeniY
+				)
+		end
 	end
 )
 
 --============================================================
--- DEFAULT STATUS
+-- BASLATICI SINIRLARI
 --============================================================
 
-SetStatus(
-	"Panel hazır.\n" ..
-	"CTRL → Aç / Kapat"
+Calistirici.RenderStepped:Connect(
+	function()
+
+		if not Baslatici.Visible then
+			return
+		end
+
+		local kamera =
+			Dunya.CurrentCamera
+
+		if not kamera then
+			return
+		end
+
+		local viewport =
+			kamera.ViewportSize
+
+		local genislik =
+			Baslatici.AbsoluteSize.X
+
+		local yukseklik =
+			Baslatici.AbsoluteSize.Y
+
+		local x =
+			Baslatici.Position.X.Offset
+
+		local y =
+			Baslatici.Position.Y.Offset
+
+		local yeniX =
+			math.clamp(
+				x,
+				5,
+				math.max(
+					5,
+					viewport.X -
+					genislik -
+					5
+				)
+			)
+
+		local yeniY =
+			math.clamp(
+				y,
+				5,
+				math.max(
+					5,
+					viewport.Y -
+					yukseklik -
+					5
+				)
+			)
+
+		if x ~= yeniX
+			or y ~= yeniY then
+
+			Baslatici.Position =
+				UDim2.fromOffset(
+					yeniX,
+					yeniY
+				)
+		end
+	end
 )
 
 --============================================================
--- FINAL
+-- GENEL DURUM
+--============================================================
+
+task.spawn(
+	function()
+
+		while AnaArayuz
+			and AnaArayuz.Parent do
+
+			task.wait(
+				0.5
+			)
+
+			if DurumMesajiBitis > 0
+				and os.clock() <
+					DurumMesajiBitis then
+
+				continue
+			end
+
+			if Durum.Aim
+				and AimHedefi
+				and AimParcasi then
+
+				local mesafe =
+					math.floor(
+						MesafeAl(
+							AimParcasi.Position
+						)
+					)
+
+				DurumYazisi.Text =
+					"AIM • " ..
+					AimHedefi.Name ..
+					" • " ..
+					tostring(
+						mesafe
+					) ..
+					" studs"
+
+			else
+
+				DurumYazisi.Text =
+					"Panel hazir • CTRL: Ac/Kapat • RAlt: Aim"
+			end
+		end
+	end
+)
+
+--============================================================
+-- BASLANGIC DURUMU
+--============================================================
+
+PaneliGoster(
+	true
+)
+
+FovGuncelle()
+
+DurumGuncelle(
+	"Panel hazir • Sistemler yuklendi.",
+	2
+)
+
+--============================================================
+-- SON
 --============================================================
 
 print("==================================================")
-print(" PLAYER CONTROL READY")
+print(" OYUNCU KONTROL PANELI HAZIR")
 print("--------------------------------------------------")
-print(" AimLock       : READY")
-print(" Nearest Target: READY")
-print(" ESP           : READY")
-print(" Speed         : READY")
-print(" Jump          : READY")
-print(" Fly           : READY")
-print(" Noclip        : READY")
-print(" God           : READY")
-print(" Teleport      : READY")
-print(" Settings      : READY")
+print(" GUI                 : HAZIR")
+print(" TASINABILIR PANEL   : HAZIR")
+print(" TASINABILIR KARE    : HAZIR")
+print(" CTRL                : PANEL")
+print(" RAlt                : AIM")
+print(" AIMLOCK             : HAZIR")
+print(" ESP                 : HAZIR")
+print(" SPEED               : HAZIR")
+print(" JUMP                : HAZIR")
+print(" FLY                 : HAZIR")
+print(" NOCLIP              : HAZIR")
+print(" GOD                 : HAZIR")
+print(" TELEPORT            : HAZIR")
+print(" AYARLAR             : HAZIR")
 print("==================================================")
