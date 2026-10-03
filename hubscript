@@ -1,0 +1,3279 @@
+--============================================================
+-- PLAYER CONTROL PANEL
+-- FINAL CLEAN LOCAL SCRIPT
+-- Stable / Optimized Version
+--============================================================
+
+print("========================================")
+print(" PLAYER CONTROL SCRIPT STARTED")
+print("========================================")
+
+--============================================================
+-- SERVICES
+--============================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+if not LocalPlayer then
+	warn("PLAYER CONTROL: LocalPlayer bulunamadı.")
+	return
+end
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+if not PlayerGui then
+	warn("PLAYER CONTROL: PlayerGui bulunamadı.")
+	return
+end
+
+--============================================================
+-- CLEAN PREVIOUS RENDER BIND
+--============================================================
+
+pcall(function()
+	RunService:UnbindFromRenderStep(
+		"PLAYER_CONTROL_AIM"
+	)
+end)
+
+--============================================================
+-- REMOVE OLD GUI
+--============================================================
+
+local old = PlayerGui:FindFirstChild(
+	"PlayerControl_FINAL"
+)
+
+if old then
+	old:Destroy()
+end
+
+--============================================================
+-- CONFIG
+--============================================================
+
+local CONFIG = {
+
+	-- SPEED
+	SPEED = 28000,
+
+	-- JUMP
+	JUMP = 100,
+
+	-- FLY
+	FLY_SPEED = 60,
+
+	-- AIMLOCK
+	AIM_DISTANCE = 1000,
+	AIM_SMOOTH = 0.35,
+	AIM_SWITCH = 0.30,
+	AIM_HEIGHT = 1.5,
+
+	-- TELEPORT
+	TELEPORT_DISTANCE = 5000,
+	TELEPORT_HEIGHT = 3.5,
+
+	-- CHECKS
+	TEAM_CHECK = true,
+	LOS_CHECK = true,
+
+	-- AIM MEMORY
+	AIM_MEMORY = 3
+}
+
+--============================================================
+-- COLORS
+--============================================================
+
+local COLOR = {
+
+	BG = Color3.fromRGB(
+		9,
+		10,
+		14
+	),
+
+	PANEL = Color3.fromRGB(
+		18,
+		20,
+		27
+	),
+
+	HEADER = Color3.fromRGB(
+		23,
+		26,
+		35
+	),
+
+	CARD = Color3.fromRGB(
+		29,
+		32,
+		42
+	),
+
+	CARD_HOVER = Color3.fromRGB(
+		36,
+		40,
+		52
+	),
+
+	BORDER = Color3.fromRGB(
+		58,
+		63,
+		80
+	),
+
+	TEXT = Color3.fromRGB(
+		245,
+		246,
+		249
+	),
+
+	SUB = Color3.fromRGB(
+		145,
+		151,
+		165
+	),
+
+	GREEN = Color3.fromRGB(
+		61,
+		203,
+		113
+	),
+
+	GREEN_BG = Color3.fromRGB(
+		29,
+		65,
+		45
+	),
+
+	RED = Color3.fromRGB(
+		235,
+		75,
+		83
+	)
+}
+
+--============================================================
+-- STATES
+--============================================================
+
+local State = {
+
+	Speed = false,
+	Jump = false,
+	Noclip = false,
+	Fly = false,
+	InfiniteJump = false,
+	ESP = false,
+	God = false,
+	AimLock = false,
+	Teleport = false
+}
+
+--============================================================
+-- CHARACTER REFERENCES
+--============================================================
+
+local Character = nil
+local Humanoid = nil
+local RootPart = nil
+
+local OriginalWalkSpeed = 16
+
+local OriginalUseJumpPower = true
+local OriginalJumpPower = 50
+local OriginalJumpHeight = 7.2
+
+--============================================================
+-- ESP
+--============================================================
+
+local ESPObjects = {}
+
+--============================================================
+-- NOCLIP
+--============================================================
+
+local CollisionMemory = {}
+
+--============================================================
+-- FLY
+--============================================================
+
+local FlyVelocity = nil
+local FlyGyro = nil
+
+--============================================================
+-- GOD
+--============================================================
+
+local GodConnection = nil
+
+--============================================================
+-- SPEED
+--============================================================
+
+local SpeedRemote = nil
+local SpeedConnection = nil
+
+--============================================================
+-- AIM
+--============================================================
+
+local AimTarget = nil
+local AimPart = nil
+local AimTimer = 0
+local AimHistory = {}
+
+--============================================================
+-- GUI
+--============================================================
+
+local ScreenGui =
+	Instance.new("ScreenGui")
+
+ScreenGui.Name =
+	"PlayerControl_FINAL"
+
+ScreenGui.ResetOnSpawn =
+	false
+
+ScreenGui.IgnoreGuiInset =
+	true
+
+ScreenGui.ZIndexBehavior =
+	Enum.ZIndexBehavior.Sibling
+
+ScreenGui.DisplayOrder =
+	999999
+
+ScreenGui.Enabled =
+	true
+
+ScreenGui.Parent =
+	PlayerGui
+
+print("PLAYER CONTROL: ScreenGui oluşturuldu.")
+
+--============================================================
+-- MAIN PANEL
+--============================================================
+
+local Main =
+	Instance.new("Frame")
+
+Main.Name =
+	"Main"
+
+Main.Size =
+	UDim2.fromOffset(
+		370,
+		560
+	)
+
+Main.Position =
+	UDim2.new(
+		0,
+		25,
+		0.5,
+		-280
+	)
+
+Main.BackgroundColor3 =
+	COLOR.PANEL
+
+Main.BorderSizePixel =
+	0
+
+Main.Visible =
+	true
+
+Main.Parent =
+	ScreenGui
+
+local MainCorner =
+	Instance.new("UICorner")
+
+MainCorner.CornerRadius =
+	UDim.new(
+		0,
+		18
+	)
+
+MainCorner.Parent =
+	Main
+
+local MainStroke =
+	Instance.new("UIStroke")
+
+MainStroke.Color =
+	COLOR.BORDER
+
+MainStroke.Thickness =
+	1
+
+MainStroke.Transparency =
+	0.2
+
+MainStroke.Parent =
+	Main
+
+--============================================================
+-- HEADER
+--============================================================
+
+local Header =
+	Instance.new("Frame")
+
+Header.Size =
+	UDim2.new(
+		1,
+		0,
+		0,
+		78
+	)
+
+Header.BackgroundColor3 =
+	COLOR.HEADER
+
+Header.BorderSizePixel =
+	0
+
+Header.Parent =
+	Main
+
+local HeaderCorner =
+	Instance.new("UICorner")
+
+HeaderCorner.CornerRadius =
+	UDim.new(
+		0,
+		18
+	)
+
+HeaderCorner.Parent =
+	Header
+
+--============================================================
+-- LOGO
+--============================================================
+
+local Logo =
+	Instance.new("Frame")
+
+Logo.Size =
+	UDim2.fromOffset(
+		44,
+		44
+	)
+
+Logo.Position =
+	UDim2.fromOffset(
+		16,
+		17
+	)
+
+Logo.BackgroundColor3 =
+	Color3.fromRGB(
+		37,
+		41,
+		54
+	)
+
+Logo.BorderSizePixel =
+	0
+
+Logo.Parent =
+	Header
+
+local LogoCorner =
+	Instance.new("UICorner")
+
+LogoCorner.CornerRadius =
+	UDim.new(
+		0,
+		12
+	)
+
+LogoCorner.Parent =
+	Logo
+
+local LogoText =
+	Instance.new("TextLabel")
+
+LogoText.Size =
+	UDim2.fromScale(
+		1,
+		1
+	)
+
+LogoText.BackgroundTransparency =
+	1
+
+LogoText.Text =
+	"PC"
+
+LogoText.TextColor3 =
+	COLOR.TEXT
+
+LogoText.Font =
+	Enum.Font.GothamBold
+
+LogoText.TextSize =
+	13
+
+LogoText.Parent =
+	Logo
+
+--============================================================
+-- TITLE
+--============================================================
+
+local Title =
+	Instance.new("TextLabel")
+
+Title.Size =
+	UDim2.new(
+		1,
+		-145,
+		0,
+		24
+	)
+
+Title.Position =
+	UDim2.fromOffset(
+		70,
+		15
+	)
+
+Title.BackgroundTransparency =
+	1
+
+Title.Text =
+	"PLAYER CONTROL"
+
+Title.TextColor3 =
+	COLOR.TEXT
+
+Title.Font =
+	Enum.Font.GothamBold
+
+Title.TextSize =
+	17
+
+Title.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+Title.Parent =
+	Header
+
+--============================================================
+-- SUBTITLE
+--============================================================
+
+local Subtitle =
+	Instance.new("TextLabel")
+
+Subtitle.Size =
+	UDim2.new(
+		1,
+		-145,
+		0,
+		18
+	)
+
+Subtitle.Position =
+	UDim2.fromOffset(
+		70,
+		42
+	)
+
+Subtitle.BackgroundTransparency =
+	1
+
+Subtitle.Text =
+	"Local control panel"
+
+Subtitle.TextColor3 =
+	COLOR.SUB
+
+Subtitle.Font =
+	Enum.Font.Gotham
+
+Subtitle.TextSize =
+	9
+
+Subtitle.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+Subtitle.Parent =
+	Header
+
+--============================================================
+-- READY
+--============================================================
+
+local Ready =
+	Instance.new("Frame")
+
+Ready.Size =
+	UDim2.fromOffset(
+		67,
+		25
+	)
+
+Ready.Position =
+	UDim2.new(
+		1,
+		-112,
+		0,
+		15
+	)
+
+Ready.BackgroundColor3 =
+	Color3.fromRGB(
+		24,
+		63,
+		43
+	)
+
+Ready.BorderSizePixel =
+	0
+
+Ready.Parent =
+	Header
+
+local ReadyCorner =
+	Instance.new("UICorner")
+
+ReadyCorner.CornerRadius =
+	UDim.new(
+		1,
+		0
+	)
+
+ReadyCorner.Parent =
+	Ready
+
+local ReadyDot =
+	Instance.new("Frame")
+
+ReadyDot.Size =
+	UDim2.fromOffset(
+		7,
+		7
+	)
+
+ReadyDot.Position =
+	UDim2.fromOffset(
+		8,
+		9
+	)
+
+ReadyDot.BackgroundColor3 =
+	COLOR.GREEN
+
+ReadyDot.BorderSizePixel =
+	0
+
+ReadyDot.Parent =
+	Ready
+
+local ReadyDotCorner =
+	Instance.new("UICorner")
+
+ReadyDotCorner.CornerRadius =
+	UDim.new(
+		1,
+		0
+	)
+
+ReadyDotCorner.Parent =
+	ReadyDot
+
+local ReadyLabel =
+	Instance.new("TextLabel")
+
+ReadyLabel.Size =
+	UDim2.new(
+		1,
+		-20,
+		1,
+		0
+	)
+
+ReadyLabel.Position =
+	UDim2.fromOffset(
+		20,
+		0
+	)
+
+ReadyLabel.BackgroundTransparency =
+	1
+
+ReadyLabel.Text =
+	"READY"
+
+ReadyLabel.TextColor3 =
+	Color3.fromRGB(
+		180,
+		255,
+		208
+	)
+
+ReadyLabel.Font =
+	Enum.Font.GothamBold
+
+ReadyLabel.TextSize =
+	8
+
+ReadyLabel.Parent =
+	Ready
+
+--============================================================
+-- CLOSE
+--============================================================
+
+local Close =
+	Instance.new("TextButton")
+
+Close.Size =
+	UDim2.fromOffset(
+		29,
+		29
+	)
+
+Close.Position =
+	UDim2.new(
+		1,
+		-39,
+		0,
+		13
+	)
+
+Close.BackgroundColor3 =
+	Color3.fromRGB(
+		43,
+		46,
+		58
+	)
+
+Close.BorderSizePixel =
+	0
+
+Close.Text =
+	"X"
+
+Close.TextColor3 =
+	COLOR.TEXT
+
+Close.Font =
+	Enum.Font.GothamBold
+
+Close.TextSize =
+	10
+
+Close.AutoButtonColor =
+	false
+
+Close.Parent =
+	Header
+
+local CloseCorner =
+	Instance.new("UICorner")
+
+CloseCorner.CornerRadius =
+	UDim.new(
+		0,
+		9
+	)
+
+CloseCorner.Parent =
+	Close
+
+--============================================================
+-- CONTENT
+--============================================================
+
+local Content =
+	Instance.new("ScrollingFrame")
+
+Content.Name =
+	"Content"
+
+Content.Size =
+	UDim2.new(
+		1,
+		-18,
+		1,
+		-94
+	)
+
+Content.Position =
+	UDim2.fromOffset(
+		9,
+		86
+	)
+
+Content.BackgroundTransparency =
+	1
+
+Content.BorderSizePixel =
+	0
+
+Content.ScrollBarThickness =
+	3
+
+Content.ScrollBarImageColor3 =
+	COLOR.BORDER
+
+Content.AutomaticCanvasSize =
+	Enum.AutomaticSize.Y
+
+Content.CanvasSize =
+	UDim2.fromOffset(
+		0,
+		0
+	)
+
+Content.Parent =
+	Main
+
+local Padding =
+	Instance.new("UIPadding")
+
+Padding.PaddingLeft =
+	UDim.new(
+		0,
+		5
+	)
+
+Padding.PaddingRight =
+	UDim.new(
+		0,
+		5
+	)
+
+Padding.PaddingTop =
+	UDim.new(
+		0,
+		3
+	)
+
+Padding.PaddingBottom =
+	UDim.new(
+		0,
+		12
+	)
+
+Padding.Parent =
+	Content
+
+local Layout =
+	Instance.new("UIListLayout")
+
+Layout.Padding =
+	UDim.new(
+		0,
+		7
+	)
+
+Layout.SortOrder =
+	Enum.SortOrder.LayoutOrder
+
+Layout.Parent =
+	Content
+
+--============================================================
+-- SECTION
+--============================================================
+
+local function Section(text)
+
+	local Label =
+		Instance.new("TextLabel")
+
+	Label.Size =
+		UDim2.new(
+			1,
+			0,
+			0,
+			22
+		)
+
+	Label.BackgroundTransparency =
+		1
+
+	Label.Text =
+		text
+
+	Label.TextColor3 =
+		COLOR.SUB
+
+	Label.Font =
+		Enum.Font.GothamBold
+
+	Label.TextSize =
+		9
+
+	Label.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	Label.Parent =
+		Content
+
+	return Label
+end
+
+--============================================================
+-- TOGGLE CREATOR
+--============================================================
+
+local function CreateToggle(
+	name,
+	description
+)
+
+	local Button =
+		Instance.new("TextButton")
+
+	Button.Name =
+		name
+
+	Button.Size =
+		UDim2.new(
+			1,
+			0,
+			0,
+			58
+		)
+
+	Button.BackgroundColor3 =
+		COLOR.CARD
+
+	Button.BorderSizePixel =
+		0
+
+	Button.AutoButtonColor =
+		false
+
+	Button.Text =
+		""
+
+	Button.Parent =
+		Content
+
+	Button:SetAttribute(
+		"Enabled",
+		false
+	)
+
+	local Corner =
+		Instance.new("UICorner")
+
+	Corner.CornerRadius =
+		UDim.new(
+			0,
+			12
+		)
+
+	Corner.Parent =
+		Button
+
+	local Stroke =
+		Instance.new("UIStroke")
+
+	Stroke.Color =
+		COLOR.BORDER
+
+	Stroke.Transparency =
+		0.6
+
+	Stroke.Thickness =
+		1
+
+	Stroke.Parent =
+		Button
+
+	--========================================================
+	-- TITLE
+	--========================================================
+
+	local NameLabel =
+		Instance.new("TextLabel")
+
+	NameLabel.Size =
+		UDim2.new(
+			1,
+			-105,
+			0,
+			20
+		)
+
+	NameLabel.Position =
+		UDim2.fromOffset(
+			14,
+			8
+		)
+
+	NameLabel.BackgroundTransparency =
+		1
+
+	NameLabel.Text =
+		name
+
+	NameLabel.TextColor3 =
+		COLOR.TEXT
+
+	NameLabel.Font =
+		Enum.Font.GothamSemibold
+
+	NameLabel.TextSize =
+		11
+
+	NameLabel.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	NameLabel.Parent =
+		Button
+
+	--========================================================
+	-- DESCRIPTION
+	--========================================================
+
+	local DescLabel =
+		Instance.new("TextLabel")
+
+	DescLabel.Size =
+		UDim2.new(
+			1,
+			-105,
+			0,
+			18
+		)
+
+	DescLabel.Position =
+		UDim2.fromOffset(
+			14,
+			30
+		)
+
+	DescLabel.BackgroundTransparency =
+		1
+
+	DescLabel.Text =
+		description
+
+	DescLabel.TextColor3 =
+		COLOR.SUB
+
+	DescLabel.Font =
+		Enum.Font.Gotham
+
+	DescLabel.TextSize =
+		8
+
+	DescLabel.TextXAlignment =
+		Enum.TextXAlignment.Left
+
+	DescLabel.TextTruncate =
+		Enum.TextTruncate.AtEnd
+
+	DescLabel.Parent =
+		Button
+
+	--========================================================
+	-- TOGGLE
+	--========================================================
+
+	local Toggle =
+		Instance.new("Frame")
+
+	Toggle.Size =
+		UDim2.fromOffset(
+			44,
+			24
+		)
+
+	Toggle.Position =
+		UDim2.new(
+			1,
+			-58,
+			0.5,
+			-12
+		)
+
+	Toggle.BackgroundColor3 =
+		Color3.fromRGB(
+			48,
+			51,
+			63
+		)
+
+	Toggle.BorderSizePixel =
+		0
+
+	Toggle.Parent =
+		Button
+
+	local ToggleCorner =
+		Instance.new("UICorner")
+
+	ToggleCorner.CornerRadius =
+		UDim.new(
+			1,
+			0
+		)
+
+	ToggleCorner.Parent =
+		Toggle
+
+	--========================================================
+	-- KNOB
+	--========================================================
+
+	local Knob =
+		Instance.new("Frame")
+
+	Knob.Size =
+		UDim2.fromOffset(
+			18,
+			18
+		)
+
+	Knob.Position =
+		UDim2.fromOffset(
+			3,
+			3
+		)
+
+	Knob.BackgroundColor3 =
+		Color3.fromRGB(
+			220,
+			223,
+			230
+		)
+
+	Knob.BorderSizePixel =
+		0
+
+	Knob.Parent =
+		Toggle
+
+	local KnobCorner =
+		Instance.new("UICorner")
+
+	KnobCorner.CornerRadius =
+		UDim.new(
+			1,
+			0
+		)
+
+	KnobCorner.Parent =
+		Knob
+
+	--========================================================
+	-- SET
+	--========================================================
+
+	local function SetEnabled(enabled)
+
+		Button:SetAttribute(
+			"Enabled",
+			enabled
+		)
+
+		if enabled then
+
+			Button.BackgroundColor3 =
+				COLOR.GREEN_BG
+
+			Toggle.BackgroundColor3 =
+				Color3.fromRGB(
+					31,
+					100,
+					62
+				)
+
+			Knob.Position =
+				UDim2.fromOffset(
+					23,
+					3
+				)
+
+			Knob.BackgroundColor3 =
+				COLOR.GREEN
+
+		else
+
+			Button.BackgroundColor3 =
+				COLOR.CARD
+
+			Toggle.BackgroundColor3 =
+				Color3.fromRGB(
+					48,
+					51,
+					63
+				)
+
+			Knob.Position =
+				UDim2.fromOffset(
+					3,
+					3
+				)
+
+			Knob.BackgroundColor3 =
+				Color3.fromRGB(
+					220,
+					223,
+					230
+				)
+		end
+	end
+
+	Button.MouseEnter:Connect(function()
+
+		if not Button:GetAttribute(
+			"Enabled"
+		) then
+
+			Button.BackgroundColor3 =
+				COLOR.CARD_HOVER
+		end
+	end)
+
+	Button.MouseLeave:Connect(function()
+
+		if not Button:GetAttribute(
+			"Enabled"
+		) then
+
+			Button.BackgroundColor3 =
+				COLOR.CARD
+		end
+	end)
+
+	return Button, SetEnabled
+end
+
+--============================================================
+-- CONTROLS
+--============================================================
+
+Section("COMBAT")
+
+local AimButton, SetAim =
+	CreateToggle(
+		"Random AimLock",
+		"Rastgele uygun oyuncuyu hedefler."
+	)
+
+local ESPButton, SetESP =
+	CreateToggle(
+		"ESP",
+		"Oyuncuları görünür şekilde işaretler."
+	)
+
+Section("MOVEMENT")
+
+local SpeedButton, SetSpeed =
+	CreateToggle(
+		"Speed",
+		"Yürüme hızını değiştirir."
+	)
+
+local JumpButton, SetJump =
+	CreateToggle(
+		"Jump",
+		"Zıplama gücünü değiştirir."
+	)
+
+local NoclipButton, SetNoclip =
+	CreateToggle(
+		"Noclip",
+		"Yerel çarpışmayı kapatır."
+	)
+
+local FlyButton, SetFly =
+	CreateToggle(
+		"Fly",
+		"WASD + Space / Shift."
+	)
+
+local InfiniteJumpButton, SetInfiniteJump =
+	CreateToggle(
+		"Infinite Jump",
+		"Havadayken tekrar zıplamayı sağlar."
+	)
+
+Section("PLAYER")
+
+local GodButton, SetGod =
+	CreateToggle(
+		"God Mode",
+		"Yerel sağlık yenileme sistemi."
+	)
+
+local TeleportButton, SetTeleport =
+	CreateToggle(
+		"Teleport To Mouse",
+		"ON yap, sonra dünyaya sol tıkla."
+	)
+
+--============================================================
+-- RESPAWN
+--============================================================
+
+local Respawn =
+	Instance.new("TextButton")
+
+Respawn.Size =
+	UDim2.new(
+		1,
+		0,
+		0,
+		46
+	)
+
+Respawn.BackgroundColor3 =
+	COLOR.CARD
+
+Respawn.BorderSizePixel =
+	0
+
+Respawn.AutoButtonColor =
+	false
+
+Respawn.Text =
+	"RESPAWN"
+
+Respawn.TextColor3 =
+	COLOR.TEXT
+
+Respawn.Font =
+	Enum.Font.GothamBold
+
+Respawn.TextSize =
+	10
+
+Respawn.Parent =
+	Content
+
+local RespawnCorner =
+	Instance.new("UICorner")
+
+RespawnCorner.CornerRadius =
+	UDim.new(
+		0,
+		12
+	)
+
+RespawnCorner.Parent =
+	Respawn
+
+Respawn.MouseEnter:Connect(function()
+
+	Respawn.BackgroundColor3 =
+		COLOR.CARD_HOVER
+end)
+
+Respawn.MouseLeave:Connect(function()
+
+	Respawn.BackgroundColor3 =
+		COLOR.CARD
+end)
+
+--============================================================
+-- STATUS CARD
+--============================================================
+
+local StatusCard =
+	Instance.new("Frame")
+
+StatusCard.Size =
+	UDim2.new(
+		1,
+		0,
+		0,
+		72
+	)
+
+StatusCard.BackgroundColor3 =
+	Color3.fromRGB(
+		22,
+		25,
+		34
+	)
+
+StatusCard.BorderSizePixel =
+	0
+
+StatusCard.Parent =
+	Content
+
+local StatusCorner =
+	Instance.new("UICorner")
+
+StatusCorner.CornerRadius =
+	UDim.new(
+		0,
+		12
+	)
+
+StatusCorner.Parent =
+	StatusCard
+
+local StatusTitle =
+	Instance.new("TextLabel")
+
+StatusTitle.Size =
+	UDim2.new(
+		1,
+		-20,
+		0,
+		16
+	)
+
+StatusTitle.Position =
+	UDim2.fromOffset(
+		10,
+		7
+	)
+
+StatusTitle.BackgroundTransparency =
+	1
+
+StatusTitle.Text =
+	"SYSTEM STATUS"
+
+StatusTitle.TextColor3 =
+	COLOR.SUB
+
+StatusTitle.Font =
+	Enum.Font.GothamBold
+
+StatusTitle.TextSize =
+	8
+
+StatusTitle.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+StatusTitle.Parent =
+	StatusCard
+
+local Status =
+	Instance.new("TextLabel")
+
+Status.Size =
+	UDim2.new(
+		1,
+		-20,
+		0,
+		42
+	)
+
+Status.Position =
+	UDim2.fromOffset(
+		10,
+		26
+	)
+
+Status.BackgroundTransparency =
+	1
+
+Status.Text =
+	"Panel hazır."
+
+Status.TextColor3 =
+	COLOR.TEXT
+
+Status.Font =
+	Enum.Font.Gotham
+
+Status.TextSize =
+	9
+
+Status.TextWrapped =
+	true
+
+Status.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+Status.TextYAlignment =
+	Enum.TextYAlignment.Top
+
+Status.Parent =
+	StatusCard
+
+print("PLAYER CONTROL: UI tamamen oluşturuldu.")
+
+--============================================================
+-- LAUNCHER
+--============================================================
+
+local Launcher =
+	Instance.new("TextButton")
+
+Launcher.Name =
+	"Launcher"
+
+Launcher.Size =
+	UDim2.fromOffset(
+		55,
+		55
+	)
+
+Launcher.Position =
+	UDim2.fromOffset(
+		20,
+		20
+	)
+
+Launcher.BackgroundColor3 =
+	COLOR.HEADER
+
+Launcher.BorderSizePixel =
+	0
+
+Launcher.Text =
+	"PC"
+
+Launcher.TextColor3 =
+	COLOR.TEXT
+
+Launcher.Font =
+	Enum.Font.GothamBold
+
+Launcher.TextSize =
+	11
+
+Launcher.Visible =
+	false
+
+Launcher.Parent =
+	ScreenGui
+
+local LauncherCorner =
+	Instance.new("UICorner")
+
+LauncherCorner.CornerRadius =
+	UDim.new(
+		0,
+		14
+	)
+
+LauncherCorner.Parent =
+	Launcher
+
+--============================================================
+-- PANEL VISIBILITY
+--============================================================
+
+local function SetVisible(value)
+
+	Main.Visible =
+		value
+
+	Launcher.Visible =
+		not value
+end
+
+Close.MouseButton1Click:Connect(function()
+
+	SetVisible(false)
+end)
+
+Launcher.MouseButton1Click:Connect(function()
+
+	SetVisible(true)
+end)
+
+--============================================================
+-- CTRL
+--============================================================
+
+UserInputService.InputBegan:Connect(function(
+	input,
+	processed
+)
+
+	if processed then
+		return
+	end
+
+	if input.KeyCode ==
+		Enum.KeyCode.LeftControl
+		or
+		input.KeyCode ==
+			Enum.KeyCode.RightControl then
+
+		SetVisible(
+			not Main.Visible
+		)
+	end
+end)
+
+--============================================================
+-- DRAG
+--============================================================
+
+local dragging = false
+local dragStart = nil
+local dragPosition = nil
+
+Header.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1 then
+
+		dragging = true
+
+		dragStart =
+			input.Position
+
+		dragPosition =
+			Main.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if not dragging then
+		return
+	end
+
+	if input.UserInputType ~=
+		Enum.UserInputType.MouseMovement then
+
+		return
+	end
+
+	local delta =
+		input.Position -
+		dragStart
+
+	Main.Position =
+		UDim2.new(
+			dragPosition.X.Scale,
+			dragPosition.X.Offset +
+				delta.X,
+
+			dragPosition.Y.Scale,
+			dragPosition.Y.Offset +
+				delta.Y
+		)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1 then
+
+		dragging = false
+	end
+end)
+
+--============================================================
+-- CHARACTER HELPERS
+--============================================================
+
+local function StopGod()
+
+	if GodConnection then
+
+		GodConnection:Disconnect()
+
+		GodConnection = nil
+	end
+end
+
+local function StopFly()
+
+	if FlyVelocity then
+
+		FlyVelocity:Destroy()
+
+		FlyVelocity = nil
+	end
+
+	if FlyGyro then
+
+		FlyGyro:Destroy()
+
+		FlyGyro = nil
+	end
+end
+
+local function RestoreCollision()
+
+	for part, oldValue in pairs(
+		CollisionMemory
+	) do
+
+		if part and part.Parent then
+
+			part.CanCollide =
+				oldValue
+		end
+	end
+
+	table.clear(
+		CollisionMemory
+	)
+end
+
+--============================================================
+-- APPLY ACTIVE STATES
+--============================================================
+
+local function GetSpeedRemote()
+
+	if SpeedRemote
+		and SpeedRemote.Parent then
+
+		return SpeedRemote
+	end
+
+	SpeedRemote =
+		ReplicatedStorage:FindFirstChild(
+			"SpeedControl"
+		)
+
+	return SpeedRemote
+end
+
+local function StartGod()
+
+	StopGod()
+
+	if not Humanoid
+		or not Character then
+
+		return
+	end
+
+	Humanoid.MaxHealth =
+		math.max(
+			Humanoid.MaxHealth,
+			100000
+		)
+
+	Humanoid.Health =
+		Humanoid.MaxHealth
+
+	GodConnection =
+		Humanoid.HealthChanged:Connect(
+			function()
+
+				if not State.God then
+					return
+				end
+
+				if Humanoid
+					and Humanoid.Health > 0
+					and Humanoid.Health <
+						Humanoid.MaxHealth then
+
+					Humanoid.Health =
+						Humanoid.MaxHealth
+				end
+			end
+		)
+end
+
+local function StartFly()
+
+	StopFly()
+
+	if not RootPart then
+		return false
+	end
+
+	FlyVelocity =
+		Instance.new("BodyVelocity")
+
+	FlyVelocity.MaxForce =
+		Vector3.new(
+			math.huge,
+			math.huge,
+			math.huge
+		)
+
+	FlyVelocity.Velocity =
+		Vector3.zero
+
+	FlyVelocity.Parent =
+		RootPart
+
+	FlyGyro =
+		Instance.new("BodyGyro")
+
+	FlyGyro.MaxTorque =
+		Vector3.new(
+			math.huge,
+			math.huge,
+			math.huge
+		)
+
+	FlyGyro.P =
+		50000
+
+	FlyGyro.CFrame =
+		RootPart.CFrame
+
+	FlyGyro.Parent =
+		RootPart
+
+	return true
+end
+
+local function ApplyActiveStates()
+
+	if not Humanoid then
+		return
+	end
+
+	-- SPEED
+	if State.Speed then
+
+		local remote =
+			GetSpeedRemote()
+
+		if remote then
+
+			pcall(function()
+
+				remote:FireServer(
+					"Start",
+					CONFIG.SPEED
+				)
+			end)
+		end
+
+		Humanoid.WalkSpeed =
+			CONFIG.SPEED
+	end
+
+	-- JUMP
+	if State.Jump then
+
+		if Humanoid.UseJumpPower then
+
+			Humanoid.JumpPower =
+				CONFIG.JUMP
+
+		else
+
+			Humanoid.JumpHeight =
+				CONFIG.JUMP
+		end
+	end
+
+	-- FLY
+	if State.Fly then
+
+		StartFly()
+	end
+
+	-- GOD
+	if State.God then
+
+		StartGod()
+	end
+end
+
+--============================================================
+-- CHARACTER REFRESH
+--============================================================
+
+local function RefreshCharacter()
+
+	Character =
+		LocalPlayer.Character
+
+	if not Character then
+
+		Humanoid = nil
+		RootPart = nil
+
+		return
+	end
+
+	Humanoid =
+		Character:FindFirstChildOfClass(
+			"Humanoid"
+		)
+
+	RootPart =
+		Character:FindFirstChild(
+			"HumanoidRootPart"
+		)
+
+	if Humanoid then
+
+		OriginalWalkSpeed =
+			Humanoid.WalkSpeed
+
+		OriginalUseJumpPower =
+			Humanoid.UseJumpPower
+
+		OriginalJumpPower =
+			Humanoid.JumpPower
+
+		OriginalJumpHeight =
+			Humanoid.JumpHeight
+	end
+end
+
+RefreshCharacter()
+
+--============================================================
+-- CHARACTER ADDED
+--============================================================
+
+LocalPlayer.CharacterAdded:Connect(
+	function(character)
+
+		-- Eski bağlantıların yeni karaktere
+		-- taşınmasını engelle
+
+		StopGod()
+		StopFly()
+
+		table.clear(
+			CollisionMemory
+		)
+
+		Character =
+			character
+
+		Humanoid = nil
+		RootPart = nil
+
+		task.spawn(function()
+
+			local hum =
+				character:WaitForChild(
+					"Humanoid",
+					8
+				)
+
+			local root =
+				character:WaitForChild(
+					"HumanoidRootPart",
+					8
+				)
+
+			if LocalPlayer.Character ~=
+				character then
+
+				return
+			end
+
+			Humanoid =
+				hum
+
+			RootPart =
+				root
+
+			if Humanoid then
+
+				OriginalWalkSpeed =
+					Humanoid.WalkSpeed
+
+				OriginalUseJumpPower =
+					Humanoid.UseJumpPower
+
+				OriginalJumpPower =
+					Humanoid.JumpPower
+
+				OriginalJumpHeight =
+					Humanoid.JumpHeight
+			end
+
+			task.wait(0.15)
+
+			if LocalPlayer.Character ~=
+				character then
+
+				return
+			end
+
+			ApplyActiveStates()
+
+			if State.ESP then
+				RefreshESP()
+			end
+
+			if State.Noclip then
+				table.clear(
+					CollisionMemory
+				)
+			end
+
+			Status.Text =
+				"Yeni karakter algılandı.\n" ..
+				"Aktif özellikler yeniden uygulandı."
+		end)
+	end
+)
+
+--============================================================
+-- SPEED
+--============================================================
+
+SpeedButton.MouseButton1Click:Connect(
+	function()
+
+		State.Speed =
+			not State.Speed
+
+		SetSpeed(
+			State.Speed
+		)
+
+		if State.Speed then
+
+			local remote =
+				GetSpeedRemote()
+
+			if remote then
+
+				pcall(function()
+
+					remote:FireServer(
+						"Start",
+						CONFIG.SPEED
+					)
+				end)
+
+				Status.Text =
+					"Speed: AKTİF\n" ..
+					"Server speed: " ..
+					tostring(CONFIG.SPEED)
+
+			else
+
+				Status.Text =
+					"Speed: AKTİF\n" ..
+					"Local fallback: " ..
+					tostring(CONFIG.SPEED)
+			end
+
+			if Humanoid then
+
+				Humanoid.WalkSpeed =
+					CONFIG.SPEED
+			end
+
+		else
+
+			local remote =
+				GetSpeedRemote()
+
+			if remote then
+
+				pcall(function()
+
+					remote:FireServer(
+						"Stop"
+					)
+				end)
+			end
+
+			if Humanoid then
+
+				Humanoid.WalkSpeed =
+					OriginalWalkSpeed
+			end
+
+			Status.Text =
+				"Speed kapalı."
+		end
+	end
+)
+
+--============================================================
+-- SPEED MAINTAIN
+--============================================================
+
+SpeedConnection =
+	RunService.Heartbeat:Connect(
+		function()
+
+			if not State.Speed then
+				return
+			end
+
+			if not Humanoid
+				or not Humanoid.Parent then
+
+				return
+			end
+
+			if Humanoid.WalkSpeed ~=
+				CONFIG.SPEED then
+
+				Humanoid.WalkSpeed =
+					CONFIG.SPEED
+			end
+		end
+	)
+
+--============================================================
+-- JUMP
+--============================================================
+
+JumpButton.MouseButton1Click:Connect(
+	function()
+
+		if not Humanoid then
+
+			Status.Text =
+				"Jump: karakter hazır değil."
+
+			return
+		end
+
+		State.Jump =
+			not State.Jump
+
+		SetJump(
+			State.Jump
+		)
+
+		if State.Jump then
+
+			if Humanoid.UseJumpPower then
+
+				Humanoid.JumpPower =
+					CONFIG.JUMP
+
+			else
+
+				Humanoid.JumpHeight =
+					CONFIG.JUMP
+			end
+
+		else
+
+			Humanoid.UseJumpPower =
+				OriginalUseJumpPower
+
+			Humanoid.JumpPower =
+				OriginalJumpPower
+
+			Humanoid.JumpHeight =
+				OriginalJumpHeight
+		end
+
+		Status.Text =
+			"Jump: " ..
+			(
+				State.Jump
+				and "AKTİF"
+				or "KAPALI"
+			)
+	end
+)
+
+--============================================================
+-- INFINITE JUMP
+--============================================================
+
+InfiniteJumpButton.MouseButton1Click:Connect(
+	function()
+
+		State.InfiniteJump =
+			not State.InfiniteJump
+
+		SetInfiniteJump(
+			State.InfiniteJump
+		)
+
+		Status.Text =
+			"Infinite Jump: " ..
+			(
+				State.InfiniteJump
+				and "AKTİF"
+				or "KAPALI"
+			)
+	end
+)
+
+UserInputService.JumpRequest:Connect(
+	function()
+
+		if not State.InfiniteJump then
+			return
+		end
+
+		if Humanoid
+			and Humanoid.Health > 0 then
+
+			Humanoid:ChangeState(
+				Enum.HumanoidStateType.Jumping
+			)
+		end
+	end
+)
+
+--============================================================
+-- NOCLIP
+--============================================================
+
+NoclipButton.MouseButton1Click:Connect(
+	function()
+
+		State.Noclip =
+			not State.Noclip
+
+		SetNoclip(
+			State.Noclip
+		)
+
+		if not State.Noclip then
+
+			RestoreCollision()
+		else
+
+			table.clear(
+				CollisionMemory
+			)
+		end
+
+		Status.Text =
+			"Noclip: " ..
+			(
+				State.Noclip
+				and "AKTİF"
+				or "KAPALI"
+			)
+	end
+)
+
+RunService.Stepped:Connect(
+	function()
+
+		if not State.Noclip then
+			return
+		end
+
+		if not Character then
+			return
+		end
+
+		for _, part in ipairs(
+			Character:GetDescendants()
+		) do
+
+			if part:IsA("BasePart") then
+
+				if CollisionMemory[part] ==
+					nil then
+
+					CollisionMemory[part] =
+						part.CanCollide
+				end
+
+				part.CanCollide = false
+			end
+		end
+	end
+)
+
+--============================================================
+-- FLY TOGGLE
+--============================================================
+
+FlyButton.MouseButton1Click:Connect(
+	function()
+
+		State.Fly =
+			not State.Fly
+
+		if State.Fly then
+
+			if StartFly() then
+
+				SetFly(true)
+
+				Status.Text =
+					"Fly AKTİF\n" ..
+					"W A S D / Space / Shift"
+
+			else
+
+				State.Fly =
+					false
+
+				SetFly(false)
+
+				Status.Text =
+					"Fly: karakter hazır değil."
+			end
+
+		else
+
+			StopFly()
+
+			SetFly(false)
+
+			Status.Text =
+				"Fly kapalı."
+		end
+	end
+)
+
+--============================================================
+-- FLY LOOP
+--============================================================
+
+RunService.RenderStepped:Connect(
+	function()
+
+		if not State.Fly then
+			return
+		end
+
+		if not RootPart then
+			return
+		end
+
+		if not FlyVelocity
+			or not FlyGyro then
+
+			StartFly()
+
+			return
+		end
+
+		local camera =
+			Workspace.CurrentCamera
+
+		if not camera then
+			return
+		end
+
+		local direction =
+			Vector3.zero
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.W
+		) then
+
+			direction +=
+				camera.CFrame.LookVector
+		end
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.S
+		) then
+
+			direction -=
+				camera.CFrame.LookVector
+		end
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.A
+		) then
+
+			direction -=
+				camera.CFrame.RightVector
+		end
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.D
+		) then
+
+			direction +=
+				camera.CFrame.RightVector
+		end
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.Space
+		) then
+
+			direction +=
+				Vector3.yAxis
+		end
+
+		if UserInputService:IsKeyDown(
+			Enum.KeyCode.LeftShift
+		) then
+
+			direction -=
+				Vector3.yAxis
+		end
+
+		if direction.Magnitude > 0 then
+
+			direction =
+				direction.Unit
+		end
+
+		FlyVelocity.Velocity =
+			direction *
+			CONFIG.FLY_SPEED
+
+		FlyGyro.CFrame =
+			CFrame.lookAt(
+				RootPart.Position,
+				RootPart.Position +
+					camera.CFrame.LookVector
+			)
+	end
+)
+
+--============================================================
+-- GOD MODE
+--============================================================
+
+GodButton.MouseButton1Click:Connect(
+	function()
+
+		State.God =
+			not State.God
+
+		SetGod(
+			State.God
+		)
+
+		if State.God then
+
+			if not Humanoid then
+
+				State.God =
+					false
+
+				SetGod(false)
+
+				Status.Text =
+					"God Mode: karakter hazır değil."
+
+				return
+			end
+
+			StartGod()
+
+			Status.Text =
+				"God Mode AKTİF."
+
+		else
+
+			StopGod()
+
+			Status.Text =
+				"God Mode kapalı."
+		end
+	end
+)
+
+--============================================================
+-- ESP
+--============================================================
+
+local function RemoveESP(player)
+
+	local object =
+		ESPObjects[player]
+
+	if object then
+
+		object:Destroy()
+
+		ESPObjects[player] =
+			nil
+	end
+end
+
+local function AddESP(player)
+
+	if player == LocalPlayer then
+		return
+	end
+
+	local character =
+		player.Character
+
+	if not character then
+		return
+	end
+
+	RemoveESP(player)
+
+	local highlight =
+		Instance.new("Highlight")
+
+	highlight.Name =
+		"PlayerControlESP"
+
+	highlight.Adornee =
+		character
+
+	highlight.FillTransparency =
+		0.65
+
+	highlight.OutlineTransparency =
+		0
+
+	highlight.DepthMode =
+		Enum.HighlightDepthMode.AlwaysOnTop
+
+	highlight.FillColor =
+		COLOR.RED
+
+	highlight.OutlineColor =
+		COLOR.TEXT
+
+	highlight.Parent =
+		character
+
+	ESPObjects[player] =
+		highlight
+end
+
+function RefreshESP()
+
+	for _, player in ipairs(
+		Players:GetPlayers()
+	) do
+
+		if player ~= LocalPlayer then
+
+			if State.ESP then
+
+				AddESP(player)
+
+			else
+
+				RemoveESP(player)
+			end
+		end
+	end
+end
+
+ESPButton.MouseButton1Click:Connect(
+	function()
+
+		State.ESP =
+			not State.ESP
+
+		SetESP(
+			State.ESP
+		)
+
+		RefreshESP()
+
+		Status.Text =
+			"ESP: " ..
+			(
+				State.ESP
+				and "AKTİF"
+				or "KAPALI"
+			)
+	end
+)
+
+Players.PlayerAdded:Connect(
+	function(player)
+
+		player.CharacterAdded:Connect(
+			function()
+
+				task.wait(0.3)
+
+				if State.ESP then
+					AddESP(player)
+				end
+			end
+		)
+	end
+)
+
+Players.PlayerRemoving:Connect(
+	function(player)
+
+		RemoveESP(player)
+
+		if AimTarget == player then
+
+			AimTarget = nil
+			AimPart = nil
+		end
+
+		for i =
+			#AimHistory,
+			1,
+			-1 do
+
+			if AimHistory[i] ==
+				player then
+
+				table.remove(
+					AimHistory,
+					i
+				)
+			end
+		end
+	end
+)
+
+--============================================================
+-- AIMLOCK HELPERS
+--============================================================
+
+local function GetRoot(player)
+
+	if not player then
+		return nil
+	end
+
+	local character =
+		player.Character
+
+	if not character then
+		return nil
+	end
+
+	local root =
+		character:FindFirstChild(
+			"HumanoidRootPart"
+		)
+
+	if root
+		and root:IsA("BasePart") then
+
+		return root
+	end
+
+	return nil
+end
+
+local function GetHumanoid(player)
+
+	if not player then
+		return nil
+	end
+
+	local character =
+		player.Character
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChildOfClass(
+		"Humanoid"
+	)
+end
+
+local function SameTeam(player)
+
+	if not CONFIG.TEAM_CHECK then
+		return false
+	end
+
+	if not LocalPlayer.Team then
+		return false
+	end
+
+	if not player.Team then
+		return false
+	end
+
+	return LocalPlayer.Team ==
+		player.Team
+end
+
+local function HasLineOfSight(player)
+
+	if not CONFIG.LOS_CHECK then
+		return true
+	end
+
+	local camera =
+		Workspace.CurrentCamera
+
+	local root =
+		GetRoot(player)
+
+	if not camera
+		or not root then
+
+		return false
+	end
+
+	local params =
+		RaycastParams.new()
+
+	params.FilterType =
+		Enum.RaycastFilterType.Exclude
+
+	params.FilterDescendantsInstances = {
+		Character,
+		player.Character
+	}
+
+	params.IgnoreWater =
+		true
+
+	local result =
+		Workspace:Raycast(
+			camera.CFrame.Position,
+			root.Position -
+				camera.CFrame.Position,
+			params
+		)
+
+	return result == nil
+end
+
+local function Recent(player)
+
+	for _, p in ipairs(
+		AimHistory
+	) do
+
+		if p == player then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function Remember(player)
+
+	if not player then
+		return
+	end
+
+	table.insert(
+		AimHistory,
+		1,
+		player
+	)
+
+	while #AimHistory >
+		CONFIG.AIM_MEMORY do
+
+		table.remove(
+			AimHistory
+		)
+	end
+end
+
+--============================================================
+-- GET TARGET
+--============================================================
+
+local function GetTarget()
+
+	if not RootPart then
+		return nil, nil
+	end
+
+	local candidates = {}
+	local fallback = {}
+
+	for _, player in ipairs(
+		Players:GetPlayers()
+	) do
+
+		if player ~= LocalPlayer
+			and player.Character
+			and not SameTeam(player) then
+
+			local hum =
+				GetHumanoid(player)
+
+			local root =
+				GetRoot(player)
+
+			if hum
+				and root
+				and hum.Health > 0 then
+
+				local distance =
+					(
+						RootPart.Position -
+						root.Position
+					).Magnitude
+
+				if distance <=
+					CONFIG.AIM_DISTANCE then
+
+					if HasLineOfSight(
+						player
+					) then
+
+						local data = {
+							Player = player,
+							Part = root
+						}
+
+						table.insert(
+							fallback,
+							data
+						)
+
+						if not Recent(
+							player
+						) then
+
+							table.insert(
+								candidates,
+								data
+							)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Önce memory'de olmayanları dene.
+	-- Hiç yoksa fallback havuzunu kullan.
+	local pool
+
+	if #candidates > 0 then
+		pool = candidates
+	else
+		pool = fallback
+	end
+
+	if #pool == 0 then
+		return nil, nil
+	end
+
+	local selected =
+		pool[
+			math.random(
+				1,
+				#pool
+			)
+		]
+
+	Remember(
+		selected.Player
+	)
+
+	return selected.Player,
+		selected.Part
+end
+
+--============================================================
+-- AIM TOGGLE
+--============================================================
+
+AimButton.MouseButton1Click:Connect(
+	function()
+
+		State.AimLock =
+			not State.AimLock
+
+		SetAim(
+			State.AimLock
+		)
+
+		AimTarget = nil
+		AimPart = nil
+		AimTimer = 0
+
+		table.clear(
+			AimHistory
+		)
+
+		Status.Text =
+			State.AimLock
+			and "AimLock AKTİF."
+			or "AimLock kapalı."
+	end
+)
+
+--============================================================
+-- AIM RENDER
+--============================================================
+
+pcall(function()
+
+	RunService:UnbindFromRenderStep(
+		"PLAYER_CONTROL_AIM"
+	)
+end)
+
+RunService:BindToRenderStep(
+	"PLAYER_CONTROL_AIM",
+	2000,
+	function(delta)
+
+		if not State.AimLock then
+			return
+		end
+
+		local camera =
+			Workspace.CurrentCamera
+
+		if not camera
+			or not RootPart then
+
+			return
+		end
+
+		AimTimer += delta
+
+		local valid = false
+
+		if AimTarget
+			and AimPart
+			and AimTarget.Character then
+
+			local hum =
+				GetHumanoid(
+					AimTarget
+				)
+
+			local root =
+				GetRoot(
+					AimTarget
+				)
+
+			if hum
+				and root
+				and hum.Health > 0
+				and not SameTeam(
+					AimTarget
+				)
+				and HasLineOfSight(
+					AimTarget
+				) then
+
+				local distance =
+					(
+						RootPart.Position -
+						root.Position
+					).Magnitude
+
+				if distance <=
+					CONFIG.AIM_DISTANCE then
+
+					AimPart =
+						root
+
+					valid = true
+				end
+			end
+		end
+
+		if not valid
+			or AimTimer >=
+				CONFIG.AIM_SWITCH then
+
+			AimTimer = 0
+
+			AimTarget,
+			AimPart =
+				GetTarget()
+		end
+
+		if not AimTarget
+			or not AimPart then
+
+			Status.Text =
+				"AimLock aktif.\n" ..
+				"Hedef bulunamadı."
+
+			return
+		end
+
+		local targetPosition =
+			AimPart.Position +
+			Vector3.new(
+				0,
+				CONFIG.AIM_HEIGHT,
+				0
+			)
+
+		local targetCFrame =
+			CFrame.lookAt(
+				camera.CFrame.Position,
+				targetPosition
+			)
+
+		camera.CFrame =
+			camera.CFrame:Lerp(
+				targetCFrame,
+				CONFIG.AIM_SMOOTH
+			)
+
+		Status.Text =
+			"AimLock AKTİF\n" ..
+			"Hedef: " ..
+			AimTarget.Name
+	end
+)
+
+--============================================================
+-- TELEPORT
+--============================================================
+
+local Mouse =
+	LocalPlayer:GetMouse()
+
+local function MouseOverPanel()
+
+	local x =
+		Mouse.X
+
+	local y =
+		Mouse.Y
+
+	local objects =
+		PlayerGui:GetGuiObjectsAtPosition(
+			x,
+			y
+		)
+
+	for _, object in ipairs(
+		objects
+	) do
+
+		if object.Visible
+			and object:IsDescendantOf(
+				Main
+			) then
+
+			return true
+		end
+	end
+
+	return false
+end
+
+local function GetTeleportRay()
+
+	local ok, unitRay =
+		pcall(function()
+
+			return Mouse.UnitRay
+		end)
+
+	if ok
+		and unitRay then
+
+		return unitRay.Origin,
+			unitRay.Direction
+	end
+
+	local camera =
+		Workspace.CurrentCamera
+
+	if not camera then
+		return nil, nil
+	end
+
+	local mousePosition =
+		UserInputService:GetMouseLocation()
+
+	local ray =
+		camera:ScreenPointToRay(
+			mousePosition.X,
+			mousePosition.Y
+		)
+
+	return ray.Origin,
+		ray.Direction
+end
+
+local function Teleport()
+
+	if not Character
+		or not Character.Parent
+		or not RootPart
+		or not RootPart.Parent then
+
+		RefreshCharacter()
+	end
+
+	if not Character
+		or not RootPart then
+
+		Status.Text =
+			"Teleport: karakter hazır değil."
+
+		return
+	end
+
+	local origin,
+		direction =
+		GetTeleportRay()
+
+	if not origin
+		or not direction then
+
+		Status.Text =
+			"Teleport: mouse ray alınamadı."
+
+		return
+	end
+
+	local params =
+		RaycastParams.new()
+
+	params.FilterType =
+		Enum.RaycastFilterType.Exclude
+
+	params.FilterDescendantsInstances = {
+		Character
+	}
+
+	params.IgnoreWater =
+		true
+
+	local rayDirection =
+		direction.Unit *
+		CONFIG.TELEPORT_DISTANCE
+
+	local result =
+		Workspace:Raycast(
+			origin,
+			rayDirection,
+			params
+		)
+
+	if not result then
+
+		Status.Text =
+			"Teleport: yüzey bulunamadı."
+
+		return
+	end
+
+	local height =
+		CONFIG.TELEPORT_HEIGHT
+
+	if Humanoid then
+
+		height =
+			math.max(
+				height,
+
+				Humanoid.HipHeight +
+				RootPart.Size.Y *
+				0.5 +
+				0.25
+			)
+	end
+
+	local targetPosition
+
+	if result.Normal.Y >= 0.6 then
+
+		targetPosition =
+			result.Position +
+			Vector3.new(
+				0,
+				height,
+				0
+			)
+
+	else
+
+		targetPosition =
+			result.Position +
+			result.Normal *
+			height
+	end
+
+	RootPart.AssemblyLinearVelocity =
+		Vector3.zero
+
+	RootPart.AssemblyAngularVelocity =
+		Vector3.zero
+
+	Character:PivotTo(
+		CFrame.new(
+			targetPosition
+		)
+	)
+
+	RootPart.AssemblyLinearVelocity =
+		Vector3.zero
+
+	RootPart.AssemblyAngularVelocity =
+		Vector3.zero
+
+	Status.Text =
+		"Teleport başarılı.\n" ..
+		"X: " ..
+		math.floor(
+			targetPosition.X
+		) ..
+		"  Y: " ..
+		math.floor(
+			targetPosition.Y
+		) ..
+		"  Z: " ..
+		math.floor(
+			targetPosition.Z
+		)
+end
+
+--============================================================
+-- TELEPORT TOGGLE
+--============================================================
+
+TeleportButton.MouseButton1Click:Connect(
+	function()
+
+		State.Teleport =
+			not State.Teleport
+
+		SetTeleport(
+			State.Teleport
+		)
+
+		if State.Teleport then
+
+			Status.Text =
+				"TELEPORT AKTİF\n" ..
+				"Haritada sol tıkla."
+
+		else
+
+			Status.Text =
+				"Teleport kapalı."
+		end
+	end
+)
+
+--============================================================
+-- WORLD CLICK
+--============================================================
+
+Mouse.Button1Down:Connect(
+	function()
+
+		if not State.Teleport then
+			return
+		end
+
+		if MouseOverPanel() then
+			return
+		end
+
+		Teleport()
+	end
+)
+
+--============================================================
+-- RESPAWN
+--============================================================
+
+Respawn.MouseButton1Click:Connect(
+	function()
+
+		if Humanoid
+			and Humanoid.Parent then
+
+			Humanoid.Health = 0
+
+		else
+
+			RefreshCharacter()
+
+			if Humanoid then
+				Humanoid.Health = 0
+			end
+		end
+	end
+)
+
+--============================================================
+-- STATUS
+--============================================================
+
+task.spawn(function()
+
+	while ScreenGui.Parent do
+
+		task.wait(0.5)
+
+		-- Aktif özelliklerin özel status mesajlarını
+		-- ezmemek için yalnızca hepsi sakin durumdayken
+		-- genel status gösteriyoruz.
+
+		if not State.AimLock
+			and not State.Speed
+			and not State.God
+			and not State.Teleport then
+
+			local speedText =
+				State.Speed
+				and "ON"
+				or "OFF"
+
+			local flyText =
+				State.Fly
+				and "ON"
+				or "OFF"
+
+			local noclipText =
+				State.Noclip
+				and "ON"
+				or "OFF"
+
+			Status.Text =
+				"Panel hazır.\n" ..
+				"Speed: " ..
+				speedText ..
+				" | Fly: " ..
+				flyText ..
+				" | Noclip: " ..
+				noclipText ..
+				"\nCTRL: Aç / Kapat"
+		end
+	end
+end)
+
+--============================================================
+-- INITIAL STATES
+--============================================================
+
+SetAim(false)
+SetESP(false)
+
+SetSpeed(false)
+SetJump(false)
+
+SetNoclip(false)
+SetFly(false)
+
+SetInfiniteJump(false)
+
+SetGod(false)
+SetTeleport(false)
+
+SetVisible(true)
+
+Status.Text =
+	"Panel hazır.\n" ..
+	"CTRL: Aç / Kapat\n" ..
+	"Speed: 28000"
+
+print("========================================")
+print(" PLAYER CONTROL PANEL READY")
+print(" GUI VISIBLE = TRUE")
+print(" CTRL = OPEN / CLOSE")
+print(" TELEPORT = Mouse.UnitRay + Raycast")
+print(" SPEED = 28000")
+print("========================================")
