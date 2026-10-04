@@ -148,6 +148,23 @@ if EskiArayuz then
 end
 
 
+-- Önceki çalıştırmadan kalan V3.1 bağlantılarını ve ekranlarını temizle.
+local EskiTemizleyici = OyuncuArayuzu:FindFirstChild("AHMET_HUB_V31_CLEANUP")
+if EskiTemizleyici and EskiTemizleyici:IsA("BindableFunction") then
+	pcall(function()
+		EskiTemizleyici:Invoke()
+	end)
+	EskiTemizleyici:Destroy()
+end
+
+for _, ekranAdi in ipairs({ "AHMET_HUB_V31_OVERLAY", "AHMET_HUB_V31_ESP_OVERLAY" }) do
+	local eskiEkran = OyuncuArayuzu:FindFirstChild(ekranAdi)
+	if eskiEkran then
+		eskiEkran:Destroy()
+	end
+end
+
+
 --============================================================
 -- TEMA
 --============================================================
@@ -13991,12 +14008,6 @@ end
 -- SINGLETON CLEANUP
 --============================================================
 
-pcall(function()
-    local previous = _G.AHMET_HUB_V31
-    if previous and previous.Destroy then
-        previous:Destroy()
-    end
-end)
 
 function V31:Destroy()
     for _, connection in ipairs(self.Connections) do
@@ -14036,7 +14047,13 @@ function V31:Destroy()
     self.State.Initialized = false
 end
 
-_G.AHMET_HUB_V31 = V31
+local V31CleanupHandle = Instance.new("BindableFunction")
+V31CleanupHandle.Name = "AHMET_HUB_V31_CLEANUP"
+V31CleanupHandle.OnInvoke = function()
+	V31:Destroy()
+	return true
+end
+V31CleanupHandle.Parent = OyuncuArayuzu
 
 V31:Boot()
 
