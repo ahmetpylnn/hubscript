@@ -2965,6 +2965,9 @@ AnaArayuz.IgnoreGuiInset =
 AnaArayuz.DisplayOrder =
 	99999
 
+AnaArayuz.Enabled =
+	true
+
 
 AnaArayuz.ZIndexBehavior =
 	Enum.ZIndexBehavior.Sibling
@@ -10756,7 +10759,8 @@ V31.Config = {
 
     UI = {
         Scale = 0.88,
-        StartupAnimation = true,
+        -- Panel anında açılır; açılış animasyonu istenirse true yapılabilir.
+        StartupAnimation = false,
         StartupDuration = 1.35,
         Compact = true,
     },
@@ -12986,6 +12990,45 @@ function V31:BuildUI()
         scale.Scale = self.Config.UI.Scale
     end
 
+    local function fitPanelToViewport()
+        local camera = V31Workspace.CurrentCamera
+        if not camera then
+            return
+        end
+
+        local viewport = camera.ViewportSize
+        local fitWidth = (viewport.X - 24) / 640
+        local fitHeight = (viewport.Y - 24) / 430
+        scale.Scale = math.clamp(
+            math.min(self.Config.UI.Scale, fitWidth, fitHeight),
+            0.45,
+            self.Config.UI.Scale
+        )
+    end
+
+    fitPanelToViewport()
+    table.insert(
+        self.Connections,
+        V31Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+            fitPanelToViewport()
+            local camera = V31Workspace.CurrentCamera
+            if camera then
+                table.insert(
+                    self.Connections,
+                    camera:GetPropertyChangedSignal("ViewportSize"):Connect(fitPanelToViewport)
+                )
+            end
+        end)
+    )
+
+    local initialCamera = V31Workspace.CurrentCamera
+    if initialCamera then
+        table.insert(
+            self.Connections,
+            initialCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitPanelToViewport)
+        )
+    end
+
     if AyarlarSayfasi then
         self:AddTitle(
             AyarlarSayfasi,
@@ -13429,7 +13472,8 @@ function V31:BuildUI()
     self.UI.SplashText = scanText
 
     if AnaPanel then
-        AnaPanel.Visible = false
+        -- Tarama süresince ana paneli görünür tut; splash açıksa üstte kalır.
+        AnaPanel.Visible = not self.Config.UI.StartupAnimation
     end
 
     if Baslatici then
